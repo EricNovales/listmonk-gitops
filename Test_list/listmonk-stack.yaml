@@ -1,0 +1,144 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: listmonk
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: listmonk
+type: Opaque
+stringData:
+  POSTGRES_DB: listmonk
+  POSTGRES_USER: listmonk
+  POSTGRES_PASSWORD: listmonk
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: listmonk
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: listmonk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: listmonk
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: listmonk-uploads-pvc
+  namespace: listmonk
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: listmonk
+  namespace: listmonk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: listmonk
+  template:
+    metadata:
+      labels:
+        app: listmonk
+    spec:
+      containers:
+        - name: listmonk
+          image: ghcr.io/ericnovales/listmonk_ericmod:v1.4.4
+          ports:
+            - containerPort: 9000
+          command: ["sh", "-c"]
+          args:
+            - >
+              ./listmonk --install --idempotent --yes --config '' &&
+              ./listmonk --upgrade --yes --config '' &&
+              ./listmonk --config ''
+          env:
+            - name: LISTMONK_app__address
+              value: "0.0.0.0:9000"
+            - name: LISTMONK_db__host
+              value: "postgres"
+            - name: LISTMONK_db__port
+              value: "5432"
+            - name: LISTMONK_db__user
+              value: "listmonk"
+            - name: LISTMONK_db__password
+              value: "listmonk"
+            - name: LISTMONK_db__database
+              value: "listmonk"
+            - name: LISTMONK_db__ssl_mode
+              value: "disable"
+            - name: TZ
+              value: "Etc/UTC"
+          volumeMounts:
+            - name: uploads
+              mountPath: /listmonk/uploads
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: listmonk-uploads-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: listmonk
+  namespace: listmonk
+spec:
+  selector:
+    app: listmonk
+  ports:
+    - port: 9000
+      targetPort: 9000
+
