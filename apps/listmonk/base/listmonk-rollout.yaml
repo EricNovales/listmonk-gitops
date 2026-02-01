@@ -17,7 +17,7 @@ spec:
       serviceAccountName: listmonk
       containers:
         - name: listmonk
-          image: ghcr.io/ericnovales/listmonk_ericmod:v1.4.4
+          image: ghcr.io/ericnovales/listmonk_ericmod:v1.5.0
           ports:
             - containerPort: 9000
           command: ["sh", "-c"]

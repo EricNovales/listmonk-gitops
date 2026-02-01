@@ -4,11 +4,11 @@ metadata:
   name: listmonk
   namespace: argocd
 spec:
-  project: default
+  project: listmonk
   source:
     repoURL: https://github.com/EricNovales/listmonk-gitops.git
     targetRevision: main
-    path: listmonk/base
+    path: apps/listmonk/base
   destination:
     server: https://kubernetes.default.svc
     namespace: listmonk
