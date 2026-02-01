@@ -1,10 +1,11 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: listmonk
   namespace: listmonk
 spec:
   replicas: 1
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: listmonk
@@ -34,19 +35,19 @@ spec:
               value: "5432"
             - name: LISTMONK_db__user
               valueFrom:
-                  secretKeyRef:
-                    name: postgres-secret
-                    key: POSTGRES_USER
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
             - name: LISTMONK_db__password
               valueFrom:
-                  secretKeyRef:
-                    name: postgres-secret
-                    key: POSTGRES_PASSWORD
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
             - name: LISTMONK_db__database
               valueFrom:
-                  secretKeyRef:
-                    name: postgres-secret
-                    key: POSTGRES_DB
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_DB
             - name: LISTMONK_db__ssl_mode
               value: "disable"
             - name: TZ
@@ -58,4 +59,9 @@ spec:
         - name: uploads
           persistentVolumeClaim:
             claimName: listmonk-uploads-pvc
+  strategy:
+    blueGreen:
+      activeService: listmonk-active
+      previewService: listmonk-preview
+      autoPromotionEnabled: false
 

@@ -10,9 +10,11 @@ resources:
   - postgres-deploy.yaml
   - postgres-svc.yaml
   - listmonk-uploads-pvc.yaml
-  - listmonk-deploy.yaml
+  - listmonk-rollout.yaml
   - listmonk-svc.yaml
+  - listmonk-preview-svc.yaml
   - listmonk-ingress.yaml
+  - listmonk-preview-ingress.yaml
   - networkpolicy-allow-egress-from-listmonk.yaml
   - networkpolicy-allow-ingress-from-ingress-nginx-to-listmonk.yaml
   - networkpolicy-allow-ingress-from-listmonk.yaml

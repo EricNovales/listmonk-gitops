@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: listmonk
+  namespace: argocd
+spec:
+  description: "Proyecto GitOps para Listmonk (k3s local)"
+
+  # Repos permitidos (solo este)
+  sourceRepos:
+    - https://github.com/EricNovales/listmonk-gitops.git
+
+  # Destinos permitidos (solo este cluster y este namespace)
+  destinations:
+    - namespace: listmonk
+      server: https://kubernetes.default.svc
+
+  # Permitimos recursos de cluster necesarios
+  # (mínimo: Namespace si usas CreateNamespace=true, y cosas como ClusterRole si algún día metes controllers)
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+
+  # Permitimos recursos "normales" dentro del namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

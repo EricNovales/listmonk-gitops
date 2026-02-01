@@ -1,18 +1,18 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: listmonk
+  name: listmonk-preview
   namespace: listmonk
 spec:
   ingressClassName: nginx
   rules:
-    - host: listmonk.local
+    - host: preview-listmonk.local
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: listmonk
+                name: listmonk-preview
                 port:
                   number: 9000

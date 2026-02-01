@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: listmonk-preview
+  namespace: listmonk
+spec:
+  selector:
+    app: listmonk
+  ports:
+    - port: 9000
+      targetPort: 9000
