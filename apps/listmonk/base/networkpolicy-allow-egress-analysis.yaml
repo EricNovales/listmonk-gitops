@@ -4,7 +4,9 @@ metadata:
   name: allow-egress-analysis-to-listmonk-and-dns
   namespace: listmonk
 spec:
-  podSelector: {}  # aplica a todos los pods del namespace (incluye el job de analysis)
+  podSelector:
+    matchLabels:
+      role: analysis
   policyTypes:
     - Egress
   egress:
