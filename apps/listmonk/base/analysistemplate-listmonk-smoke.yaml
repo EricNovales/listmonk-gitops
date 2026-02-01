@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: listmonk-smoke
+  namespace: listmonk
+spec:
+  args:
+    - name: url
+  metrics:
+    - name: http-smoke
+      interval: 10s
+      count: 6
+      successCondition: result == 1
+      provider:
+        job:
+          spec:
+            backoffLimit: 0
+            template:
+              spec:
+                restartPolicy: Never
+                containers:
+                  - name: curl
+                    image: curlimages/curl:8.5.0
+                    command: ["/bin/sh", "-c"]
+                    args:
+                      - |
+                        set -e
+                        code="$(curl -s -o /tmp/body -w '%{http_code}' '{{args.url}}' || true)"
+                        echo "HTTP=$code"
+                        # Listmonk puede devolver 200 o 302 (redirige a login)
+                        if [ "$code" = "200" ] || [ "$code" = "302" ]; then
+                          # chequeo muy ligero de contenido (opcional)
+                          head -c 200 /tmp/body || true
+                          exit 0
+                        fi
+                        exit 1
