@@ -28,7 +28,7 @@ spec:
               ./listmonk --config ""
           env:
             - name: LISTMONK_app__address
-              value: "10.43.2.247:9000"
+              value: "0.0.0.0:9000"
             - name: LISTMONK_db__host
               value: "postgres"
             - name: LISTMONK_db__port
