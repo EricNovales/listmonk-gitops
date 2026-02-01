@@ -66,8 +66,8 @@ spec:
       autoPromotionEnabled: true
       
       prePromotionAnalysis:
-      templates:
-        - templateName: listmonk-smoke
-      args:
-        - name: url
-          value: http://listmonk-preview.listmonk.svc.cluster.local/
+        templates:
+          - templateName: listmonk-smoke
+        args:
+          - name: url
+            value: http://listmonk-preview.listmonk.svc.cluster.local:9000/
