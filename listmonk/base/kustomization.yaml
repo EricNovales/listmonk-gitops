@@ -13,4 +13,9 @@ resources:
   - listmonk-deploy.yaml
   - listmonk-svc.yaml
   - listmonk-ingress.yaml
+  - networkpolicy-allow-egress-from-listmonk.yaml
+  - networkpolicy-allow-ingress-from-ingress-nginx-to-listmonk.yaml
+  - networkpolicy-allow-ingress-from-listmonk.yaml
+  - networkpolicy-default-deny.yaml
+
 

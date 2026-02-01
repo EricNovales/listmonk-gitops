@@ -7,3 +7,6 @@ resources:
   - mailpit-deploy.yaml
   - mailpit-svc.yaml
   - mailpit-ingress.yaml
+  - networkpolicy-allow-ingress-from-ingress-nginx.yaml
+  - networkpolicy-allow-ingress-from-listmonk.yaml
+  - networkpolicy-default-deny.yaml
