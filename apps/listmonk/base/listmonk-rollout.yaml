@@ -23,9 +23,9 @@ spec:
           command: ["sh", "-c"]
           args:
             - >
-              ./listmonk --install --idempotent --yes --config '' &&
-              ./listmonk --upgrade --yes --config '' &&
-              ./listmonk
+              ./listmonk --install --idempotent --yes --config "" &&
+              ./listmonk --upgrade --yes --config "" &&
+              ./listmonk --config ""
           env:
             - name: LISTMONK_app__address
               value: "0.0.0.0:9000"
