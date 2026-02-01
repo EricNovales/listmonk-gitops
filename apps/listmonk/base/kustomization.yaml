@@ -21,6 +21,5 @@ resources:
   - networkpolicy-allow-ingress-from-listmonk.yaml
   - networkpolicy-allow-ingress-from-analysis-to-listmonk.yaml
   - networkpolicy-allow-egress-analysis.yaml
-  - networkpolicy-default-deny.yaml
 
 
