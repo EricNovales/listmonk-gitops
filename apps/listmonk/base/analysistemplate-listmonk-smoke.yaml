@@ -10,7 +10,8 @@ spec:
     - name: http-smoke
       interval: 10s
       count: 6
-      successCondition: result == 1
+      # Para provider job, lo más estable es tratar "0" como éxito
+      successCondition: result == 0
       provider:
         job:
           spec:
@@ -27,13 +28,23 @@ spec:
                     command: ["/bin/sh", "-c"]
                     args:
                       - |
-                        set -e
-                        code="$(curl -s -o /tmp/body -w '%{http_code}' '{{args.url}}' || true)"
-                        echo "HTTP=$code"
-                        # Listmonk puede devolver 200 o 302 (redirige a login)
-                        if [ "$code" = "200" ] || [ "$code" = "302" ]; then
-                          # chequeo muy ligero de contenido (opcional)
-                          head -c 200 /tmp/body || true
-                          exit 0
-                        fi
+                        set -eu
+
+                        # Warm-up breve (evita fallos por DNS/conntrack justo al crear el pod)
+                        sleep 2
+
+                        # Reintentos dentro del job
+                        i=0
+                        while [ $i -lt 5 ]; do
+                          code="$(curl -sS -L --max-time 5 -o /tmp/body -w '%{http_code}' '{{args.url}}' || true)"
+                          echo "TRY=$i HTTP=$code"
+                          if [ "$code" = "200" ] || [ "$code" = "302" ]; then
+                            head -c 200 /tmp/body || true
+                            exit 0
+                          fi
+                          i=$((i+1))
+                          sleep 2
+                        done
+
                         exit 1
+
