@@ -10,7 +10,7 @@ spec:
     - name: http-smoke
       interval: 10s
       count: 3 #Hace el test 3 veces
-      failureLimit: 1
+     # failureLimit: 1
       # Para provider job, lo más estable es tratar "0" como éxito
       successCondition: result == 0
       provider:
