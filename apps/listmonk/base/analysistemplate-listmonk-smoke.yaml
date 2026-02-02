@@ -9,14 +9,14 @@ spec:
   metrics:
     - name: http-smoke
       interval: 10s
-      count: 2 #Hace el test 2 veces
+      count: 3 #Hace el test 2 veces
       failureLimit: 1
       # Para provider job, lo más estable es tratar "0" como éxito
       successCondition: result == 0
       provider:
         job:
           spec:
-            ttlSecondsAfterFinished: 300 #Se borran en 5mins
+           # ttlSecondsAfterFinished: 300 #Se borran en 5mins
             backoffLimit: 0
             template:
               metadata:
