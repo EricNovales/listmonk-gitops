@@ -68,7 +68,7 @@ spec:
       prePromotionAnalysis:
         templates:
           - templateName: listmonk-smoke
-          failureLimit: 1
+        failureLimit: 1
         ttlStrategy:
           secondsAfterCompletion: 600
         args:
