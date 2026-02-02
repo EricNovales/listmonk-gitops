@@ -16,7 +16,7 @@ spec:
       provider:
         job:
           spec:
-           # ttlSecondsAfterFinished: 300 #Se borran en 5mins
+            ttlSecondsAfterFinished: 300
             backoffLimit: 0
             template:
               metadata:
