@@ -16,7 +16,7 @@ spec:
       provider:
         job:
           spec:
-            ttlSecondsAfterFinished: 300
+            ttlSecondsAfterFinished: 500
             backoffLimit: 0
             template:
               metadata:
