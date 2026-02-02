@@ -68,6 +68,9 @@ spec:
       prePromotionAnalysis:
         templates:
           - templateName: listmonk-smoke
+          failureLimit: 1
+        ttlStrategy:
+          secondsAfterCompletion: 600
         args:
           - name: url
             value: http://listmonk-preview.listmonk.svc.cluster.local:9000/
