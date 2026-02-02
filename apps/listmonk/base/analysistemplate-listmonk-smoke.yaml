@@ -16,7 +16,7 @@ spec:
       provider:
         job:
           spec:
-           # ttlSecondsAfterFinished: 500 #Este parametro no funciona bien   
+           # ttlSecondsAfterFinished: 500
             backoffLimit: 0
             template:
               metadata:
