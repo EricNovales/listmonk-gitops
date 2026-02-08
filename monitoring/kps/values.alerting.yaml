@@ -1,0 +1,14 @@
+alertmanager:
+  config:
+    global: {}
+    route:
+      receiver: webhook
+      group_by: ["alertname", "namespace"]
+      group_wait: 10s
+      group_interval: 1m
+      repeat_interval: 30m
+    receivers:
+      - name: webhook
+        webhook_configs:
+          - url: http://webhook-receiver-echo-server.monitoring.svc.cluster.local:8080/
+            send_resolved: true

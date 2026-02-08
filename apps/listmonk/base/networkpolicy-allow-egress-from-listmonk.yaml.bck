@@ -1,0 +1,43 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-from-listmonk
+  namespace: listmonk
+spec:
+  podSelector:
+    matchLabels:
+      app: listmonk
+  policyTypes:
+    - Egress
+  egress:
+    # -> Postgres (mismo namespace)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+
+    # -> Mailpit SMTP (namespace mail)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: mail
+          podSelector:
+            matchLabels:
+              app: mailpit
+      ports:
+        - protocol: TCP
+          port: 1025
+
+    # -> DNS (CoreDNS en kube-system)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

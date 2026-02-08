@@ -1,0 +1,162 @@
+grafana:
+  # Necesario para que Grafana cargue dashboards desde ConfigMaps generados por Helm
+  sidecar:
+    dashboards:
+      enabled: true
+
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: custom
+          orgId: 1
+          folder: "Custom"
+          type: file
+          disableDeletion: true
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/custom
+
+  dashboards:
+    custom:
+      01-cluster:
+        json: |
+          {
+            "uid": "cluster-state",
+            "title": "Cluster - Estado (KSM)",
+            "schemaVersion": 38,
+            "version": 1,
+            "refresh": "10s",
+            "panels": [
+              {
+                "type": "timeseries",
+                "title": "Pods Running (all namespaces)",
+                "datasource": "Prometheus",
+                "targets": [{"refId":"A","expr":"sum(kube_pod_status_phase{phase=\"Running\"})"}],
+                "gridPos": {"x":0,"y":0,"w":12,"h":8}
+              },
+              {
+                "type": "timeseries",
+                "title": "Pods Pending (all namespaces)",
+                "datasource": "Prometheus",
+                "targets": [{"refId":"A","expr":"sum(kube_pod_status_phase{phase=\"Pending\"})"}],
+                "gridPos": {"x":12,"y":0,"w":12,"h":8}
+              },
+              {
+                "type": "timeseries",
+                "title": "Container Restarts (rate)",
+                "datasource": "Prometheus",
+                "targets": [{"refId":"A","expr":"sum(rate(kube_pod_container_status_restarts_total[5m]))"}],
+                "gridPos": {"x":0,"y":8,"w":12,"h":8}
+              },
+              {
+                "type": "timeseries",
+                "title": "Deployments: desired vs available",
+                "datasource": "Prometheus",
+                "targets": [
+                  {"refId":"A","expr":"sum(kube_deployment_spec_replicas)"},
+                  {"refId":"B","expr":"sum(kube_deployment_status_replicas_available)"}
+                ],
+                "gridPos": {"x":12,"y":8,"w":12,"h":8}
+              },
+              {
+                "type": "stat",
+                "title": "PVC Pending",
+                "datasource": "Prometheus",
+                "targets": [{"refId":"A","expr":"sum(kube_persistentvolumeclaim_status_phase{phase=\"Pending\"})"}],
+                "gridPos": {"x":0,"y":16,"w":6,"h":5}
+              }
+            ]
+          }
+
+      02-listmonk-app:
+        json: |
+          {
+            "uid": "listmonk-app",
+            "title": "Listmonk - Salud aplicación",
+            "schemaVersion": 38,
+            "version": 1,
+            "refresh": "10s",
+            "panels": [
+              {
+                "type": "timeseries",
+                "title": "Deployments listmonk: desired vs available",
+                "datasource": "Prometheus",
+                "targets": [
+                  {"refId":"A","expr":"sum(kube_deployment_spec_replicas{namespace=\"listmonk\"})"},
+                  {"refId":"B","expr":"sum(kube_deployment_status_replicas_available{namespace=\"listmonk\"})"}
+                ],
+                "gridPos": {"x":0,"y":0,"w":24,"h":8}
+              },
+              {
+                "type": "timeseries",
+                "title": "Restarts (namespace=listmonk)",
+                "datasource": "Prometheus",
+                "targets": [{"refId":"A","expr":"sum(rate(kube_pod_container_status_restarts_total{namespace=\"listmonk\"}[5m]))"}],
+                "gridPos": {"x":0,"y":8,"w":12,"h":8}
+              },
+              {
+                "type": "timeseries",
+                "title": "Pods NOT Running (namespace=listmonk)",
+                "datasource": "Prometheus",
+                "targets": [{"refId":"A","expr":"sum(kube_pod_status_phase{namespace=\"listmonk\",phase!=\"Running\"})"}],
+                "gridPos": {"x":12,"y":8,"w":12,"h":8}
+              },
+              {
+                "type": "logs",
+                "title": "Logs (namespace=listmonk)",
+                "datasource": "Loki",
+                "targets": [{"refId":"A","expr":"{namespace=\"listmonk\"}"}],
+                "gridPos": {"x":0,"y":16,"w":24,"h":10}
+              }
+            ]
+          }
+
+      03-postgres:
+        json: |
+          {
+            "uid": "postgres-db",
+            "title": "Postgres - Métricas DB",
+            "schemaVersion": 38,
+            "version": 1,
+            "refresh": "10s",
+            "panels": [
+              {
+                "type": "stat",
+                "title": "Postgres UP",
+                "datasource": "Prometheus",
+                "targets": [{"refId":"A","expr":"max(pg_up)"}],
+                "gridPos": {"x":0,"y":0,"w":6,"h":5}
+              },
+              {
+                "type": "timeseries",
+                "title": "Connections",
+                "datasource": "Prometheus",
+                "targets": [{"refId":"A","expr":"sum(pg_stat_activity_count)"}],
+                "gridPos": {"x":6,"y":0,"w":18,"h":8}
+              },
+              {
+                "type": "timeseries",
+                "title": "Transactions commit/rollback (rate)",
+                "datasource": "Prometheus",
+                "targets": [
+                  {"refId":"A","expr":"sum(rate(pg_stat_database_xact_commit[5m]))"},
+                  {"refId":"B","expr":"sum(rate(pg_stat_database_xact_rollback[5m]))"}
+                ],
+                "gridPos": {"x":0,"y":8,"w":24,"h":8}
+              },
+              {
+                "type": "timeseries",
+                "title": "Cache hit ratio (approx)",
+                "datasource": "Prometheus",
+                "targets": [
+                  {
+                    "refId":"A",
+                    "expr":"sum(rate(pg_stat_database_blks_hit[5m])) / (sum(rate(pg_stat_database_blks_hit[5m])) + sum(rate(pg_stat_database_blks_read[5m])))"
+                  }
+                ],
+                "gridPos": {"x":0,"y":16,"w":24,"h":8}
+              }
+            ]
+          }
+
