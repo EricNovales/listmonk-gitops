@@ -31,13 +31,3 @@ spec:
         - protocol: TCP
           port: 1025
 
-    # -> DNS (CoreDNS en kube-system)
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
