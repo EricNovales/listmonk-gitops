@@ -16,9 +16,9 @@ spec:
       serviceAccountName: postgres
       securityContext:
         runAsNonRoot: true
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 0
+          #runAsUser: 999
+          #runAsGroup: 999
+          #fsGroup: 0
       containers:
         - name: postgres
           image: postgres:17-alpine
