@@ -9,11 +9,11 @@ defaultRules:
 prometheusOperator:
   resources:
     requests:
-      cpu: 100m
-      memory: 200Mi
+      cpu: 5m
+      memory: 128Mi
     limits:
-      cpu: 500m
-      memory: 500Mi
+      cpu: 200m
+      memory: 256Mi
 
 prometheus:
   prometheusSpec:
@@ -47,8 +47,8 @@ alertmanager:
 kubeStateMetrics:
   resources:
     requests:
-      cpu: 50m
-      memory: 128Mi
+      cpu: 30m
+      memory: 64Mi
     limits:
       cpu: 200m
       memory: 256Mi

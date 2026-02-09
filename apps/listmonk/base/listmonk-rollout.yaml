@@ -15,6 +15,11 @@ spec:
         app: listmonk
     spec:
       serviceAccountName: listmonk
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       containers:
         - name: listmonk
           image: ghcr.io/ericnovales/listmonk_ericmod:v1.5.0
@@ -52,6 +57,13 @@ spec:
               value: "disable"
             - name: TZ
               value: "Etc/UTC"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           volumeMounts:
             - name: uploads
               mountPath: /listmonk/uploads
