@@ -23,7 +23,5 @@ resources:
   - networkpolicy-allow-egress-analysis.yaml
   - networkpolicy-allow-egress-dns.yaml
   - networkpolicy-default-deny.yaml
-images:
-  - name: ghcr.io/ericnovales/listmonk_ericmod
-    newTag: v1.5.0
+
 

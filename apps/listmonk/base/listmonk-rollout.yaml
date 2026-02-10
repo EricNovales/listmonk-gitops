@@ -22,7 +22,7 @@ spec:
         fsGroup: 0
       containers:
         - name: listmonk
-          image: ghcr.io/ericnovales/listmonk_ericmod:v1.5.0
+          image: ghcr.io/ericnovales/listmonk_ericmod
           ports:
             - containerPort: 9000
           command: ["sh", "-c"]
