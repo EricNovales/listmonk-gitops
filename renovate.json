@@ -1,14 +1,24 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
-  "enabledManagers": ["kustomize"],
+  "extends": [
+    "config:recommended"
+  ],
+  "enabledManagers": [
+    "kustomize"
+  ],
   "kustomize": {
-    "fileMatch": ["(^|/)kustomization\\.ya?ml$"]
+    "managerFilePatterns": [
+      "/(^|/)kustomization\\.ya?ml$/"
+    ]
   },
   "packageRules": [
     {
-      "matchDatasources": ["docker"],
-      "matchPackageNames": ["ghcr.io/ericnovales/listmonk_ericmod"],
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/ericnovales/listmonk_ericmod"
+      ],
       "groupName": "listmonk vX.X.X updates",
       "prCreation": "immediate",
       "allowedVersions": "/^v\\d+\\.\\d+\\.\\d+$/",
