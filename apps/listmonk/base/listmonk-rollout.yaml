@@ -75,8 +75,8 @@ spec:
     blueGreen:
       activeService: listmonk-active
       previewService: listmonk-preview
-      autoPromotionEnabled: true
-      
+      autoPromotionEnabled: false
+      autoPromotionSeconds: 5 
       prePromotionAnalysis:
         templates:
           - templateName: listmonk-smoke
