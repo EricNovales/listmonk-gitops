@@ -11,3 +11,5 @@
 
 # Kubeconfig / creds
 kubeconfig*
+
+.terraform

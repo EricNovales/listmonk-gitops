@@ -1,0 +1,123 @@
+# RBAC Kubernetes (ClusterRoles)
+createClusterRoles: true
+createAggregateRoles: false
+
+global:
+  domain: argocd.local
+
+configs:
+  params:
+    # TLS lo termina ingress-nginx, ArgoCD sirve HTTP por dentro
+    server.insecure: "true"
+
+  # RBAC "interno" de ArgoCD (policies de usuarios/roles)
+  rbac:
+    create: true
+
+server:
+  serviceAccount:
+    create: true
+    name: argocd-server
+    automountServiceAccountToken: true
+
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hostname: argocd.local
+    path: /
+    pathType: Prefix
+    tls: true
+    annotations:
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 150m
+      memory: 256Mi
+
+controller:
+  serviceAccount:
+    create: true
+    name: argocd-application-controller
+    automountServiceAccountToken: true
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+
+repoServer:
+  serviceAccount:
+    create: true
+    name: argocd-repo-server
+    automountServiceAccountToken: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+redis:
+  serviceAccount:
+    # en el chart suele venir false para redis single, lo dejamos explícito
+    create: false
+    automountServiceAccountToken: false
+
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+dex:
+  serviceAccount:
+    create: true
+    name: argocd-dex-server
+    automountServiceAccountToken: true
+
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+applicationSet:
+  serviceAccount:
+    create: true
+    name: argocd-applicationset-controller
+    automountServiceAccountToken: true
+
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+notifications:
+  serviceAccount:
+    create: true
+    name: argocd-notifications-controller
+    automountServiceAccountToken: true
+
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+

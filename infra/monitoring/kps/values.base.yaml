@@ -1,0 +1,58 @@
+global:
+  rbac:
+    create: true
+
+defaultRules:
+  create: false
+
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 5m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    resources:
+      requests:
+        cpu: 200m
+        memory: 500Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+
+kubeStateMetrics:
+  resources:
+    requests:
+      cpu: 30m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+#Deshabilitado Node-Exporter
+nodeExporter:
+  enabled: false

@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: webhook-test
+  namespace: monitoring
+  labels:
+    release: kps
+spec:
+  groups:
+    - name: webhook-test
+      rules:
+        - alert: WebhookTest
+          expr: vector(1)
+          for: 10s
+          labels:
+            severity: info
+          annotations:
+            summary: "Test alert to validate Alertmanager webhook"
