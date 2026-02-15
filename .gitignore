@@ -12,4 +12,4 @@
 # Kubeconfig / creds
 kubeconfig*
 
-.terraform
+infra/Terraform/.terraform/
