@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: listmonk-smoke
+  namespace: listmonk
+spec:
+  args:
+    - name: url
+  metrics:
+    - name: http-smoke
+      interval: 10s
+      count: 1 #Hace el test X veces
+     # failureLimit: 1
+      # Tratar "0" como éxito
+      successCondition: result == 0
+      provider:
+        job:
+          spec:
+           # ttlSecondsAfterFinished: 500
+            backoffLimit: 0
+            template:
+              metadata:
+                labels:
+                  role: analysis
+              spec:
+                restartPolicy: Never
+                containers:
+                  - name: curl
+                    image: curlimages/curl:8.5.0
+                    command: ["/bin/sh", "-c"]
+                    args:
+                      - |
+                        set -eu
+
+                        # Warm-up breve (evita fallos por DNS/conntrack justo al crear el pod)
+                        sleep 2
+
+                        # Reintentos dentro del job
+                        i=0
+                        while [ $i -lt 5 ]; do
+                          code="$(curl -sS -L --max-time 5 -o /tmp/body -w '%{http_code}' '{{args.url}}' || true)"
+                          echo "TRY=$i HTTP=$code"
+                          if [ "$code" = "200" ] || [ "$code" = "302" ]; then
+                            head -c 200 /tmp/body || true
+                            exit 0
+                          fi
+                          i=$((i+1))
+                          sleep 2
+                        done
+
+                        exit 1
+

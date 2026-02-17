@@ -1,7 +1,5 @@
 ############################################
-# ServiceAccount mailpit
-############################################
-
+#NP mail
 ############################################
 # default-deny (Ingress + Egress)
 ############################################
@@ -16,6 +14,7 @@ resource "kubernetes_network_policy_v1" "mail_default_deny" {
 
     policy_types = ["Ingress", "Egress"]
   }
+ depends_on = [kubernetes_network_policy_v1.listmonk_default_deny]
 }
 
 ############################################

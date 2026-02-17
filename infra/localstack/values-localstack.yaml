@@ -1,0 +1,45 @@
+# values-localstack.yaml
+
+image:
+  repository: localstack/localstack
+  tag: "latest"          # si quieres fijar versión real: "3.8.1" (ejemplo)
+  pullPolicy: IfNotPresent
+
+# Solo S3
+extraEnvVars:
+  - name: SERVICES
+    value: "s3"
+  - name: DEBUG
+    value: "0"
+
+# Service interno
+service:
+  type: ClusterIP
+  edgeService:
+    port: 4566
+    targetPort: 4566
+
+# Recursos
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Ingress con ingress-nginx
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+  hosts:
+    - host: localstack.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+

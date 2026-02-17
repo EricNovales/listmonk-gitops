@@ -1,0 +1,85 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: listmonk
+  namespace: listmonk
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: listmonk
+  template:
+    metadata:
+      labels:
+        app: listmonk
+    spec:
+      serviceAccountName: listmonk
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 0
+      containers:
+        - name: listmonk
+          image: ghcr.io/ericnovales/listmonk_ericmod
+          ports:
+            - containerPort: 9000
+          command: ["sh", "-c"]
+          args:
+            - >
+              ./listmonk --install --idempotent --yes --config "" &&
+              ./listmonk --upgrade --yes --config "" &&
+              ./listmonk --config ""
+          env:
+            - name: LISTMONK_app__address
+              value: "0.0.0.0:9000"
+            - name: LISTMONK_db__host
+              value: "postgres"
+            - name: LISTMONK_db__port
+              value: "5432"
+            - name: LISTMONK_db__user
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: LISTMONK_db__password
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: LISTMONK_db__database
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_DB
+            - name: LISTMONK_db__ssl_mode
+              value: "disable"
+            - name: TZ
+              value: "Etc/UTC"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: uploads
+              mountPath: /listmonk/uploads
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: listmonk-uploads-pvc
+  strategy:
+    blueGreen:
+      activeService: listmonk-active
+      previewService: listmonk-preview
+      autoPromotionEnabled: true
+      autoPromotionSeconds: 10
+      prePromotionAnalysis:
+        templates:
+          - templateName: listmonk-smoke
+        args:
+          - name: url
+            value: http://listmonk-preview.listmonk.svc.cluster.local:9000/

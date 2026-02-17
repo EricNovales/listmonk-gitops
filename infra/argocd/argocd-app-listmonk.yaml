@@ -18,3 +18,10 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+  ignoreDifferences:
+  - group: ""
+    kind: Service
+    name: listmonk-preview
+    namespace: listmonk
+    jsonPointers:
+      - /spec/selector

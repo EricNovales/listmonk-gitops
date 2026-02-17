@@ -7,7 +7,7 @@ global:
 
 configs:
   params:
-    # TLS lo termina ingress-nginx, ArgoCD sirve HTTP por dentro
+    # ingress-nginx insecure
     server.insecure: "true"
 
   # RBAC "interno" de ArgoCD (policies de usuarios/roles)
@@ -67,7 +67,7 @@ repoServer:
 
 redis:
   serviceAccount:
-    # en el chart suele venir false para redis single, lo dejamos explícito
+    # en el chart suele venir false para redis single
     create: false
     automountServiceAccountToken: false
 
