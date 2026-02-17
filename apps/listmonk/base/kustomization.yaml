@@ -15,5 +15,5 @@ resources:
   - listmonk-preview-ingress.yaml
 images:
   - name: ghcr.io/ericnovales/listmonk_ericmod
-    newTag: v1.5.0
+    newTag: v1.6.0
 
