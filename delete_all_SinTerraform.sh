@@ -263,8 +263,8 @@ fi
 # -------------------------
 echo
 echo "========== 4) Kustomize (si tienes el repo local) =========="
-delete_kustomize_if_possible "infra/mail" "mail"
-delete_kustomize_if_possible "apps/base/Manual/listmonk" "listmonk"
+delete_kustomize_if_possible "infra/mail/Manual" "mail"
+delete_kustomize_if_possible "apps/listmonk/base/Manual" "listmonk"
 
 # -------------------------
 # 5) Namespaces (borrado "gordo")
