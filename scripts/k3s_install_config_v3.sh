@@ -22,7 +22,7 @@ export AWS_SECRET_ACCESS_KEY=test
 export AWS_DEFAULT_REGION=us-east-1
 
 # ----------------------------
-# logging (sin iconos + colores)
+# logging (Colores)
 # ----------------------------
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -35,14 +35,18 @@ log_install() { echo -e "${BLUE}[INSTALLING]${NC} $*"; }
 log_apply()   { echo -e "${BLUE}[APPLYING]${NC} $*"; }
 log_warn()    { echo -e "${YELLOW}[WARNING]${NC} $*"; }
 log_err()     { echo -e "${RED}[ERROR]${NC} $*" 1>&2; }
-
+log_info()      { echo -e "${BLUE}[INFO]${NC} $*"; }
 # ----------------------------
 # Funciones
 # ----------------------------
+
+# Verificación comandos
 need() { command -v "$1" >/dev/null || { log_err "Falta '$1'"; exit 1; }; }
 
+# Verificación namespaces
 ns_exists() { kubectl get ns "$1" >/dev/null 2>&1; }
 
+# Creación namespaces antes de Terraform
 ensure_ns() {
   local ns="$1"
   if ns_exists "$ns"; then
@@ -54,6 +58,7 @@ ensure_ns() {
   fi
 }
 
+# Funcion de espera
 wait_ns_pods_ready() {
   local ns="$1"
 
@@ -62,12 +67,12 @@ wait_ns_pods_ready() {
     return 0
   }
 
-  # Si no hay pods, no esperamos
+  # Si no hay pods, no espera
   local total
   total=$(kubectl -n "$ns" get pods --no-headers 2>/dev/null | wc -l | xargs)
   [[ "$total" -eq 0 ]] && return 0
 
-  # Contar pods NO ready (best-effort)
+  # Contar pods NO ready
   local not_ready
   not_ready=$(
     kubectl -n "$ns" get pods -o jsonpath='{range .items[*]}{.status.containerStatuses[*].ready}{"\n"}{end}' 2>/dev/null \
@@ -76,19 +81,21 @@ wait_ns_pods_ready() {
       } END {print c+0}'
   )
 
-  # Si todos están ready, no hacemos wait ni ensuciamos logs
+  # Si todos están ready, no hacemos wait
   [[ "$not_ready" -eq 0 ]] && return 0
 
-  log_apply "Esperando pods Ready en '$ns' (best-effort)..."
+  log_info "Esperando pods Ready en '$ns' ...."
   kubectl -n "$ns" wait --for=condition=Ready pod --all --timeout=300s >/dev/null 2>&1 || true
   log_ok "Pods en '$ns' listos"
 }
 
+# Verificación si existe con Helm
 helm_release_exists() {
   local ns="$1" rel="$2"
   helm -n "$ns" status "$rel" >/dev/null 2>&1
 }
 
+# Instalación con helm
 helm_install_and_check() {
   local ns="$1" rel="$2" chart="$3"
   shift 3
@@ -101,7 +108,7 @@ helm_install_and_check() {
   log_install "Helm release '$rel' en ns '$ns'"
   helm upgrade --install "$rel" "$chart" -n "$ns" "$@"
 
-  # Validación (best-effort): release existe + pods ready
+  # Validación: release existe + pods ready
   if helm_release_exists "$ns" "$rel"; then
     kubectl -n "$ns" rollout status deploy --timeout=300s >/dev/null 2>&1 || true
     kubectl -n "$ns" rollout status statefulset --timeout=300s >/dev/null 2>&1 || true
@@ -113,7 +120,7 @@ helm_install_and_check() {
   fi
 }
 
-# aplica solo si el recurso no existe (para cosas "únicas": AppProject, Application, webhook deploy...)
+# Función para ejecutar ficheros con Kubectl
 apply_if_missing() {
   local kind="$1" name="$2" ns="${3:-}" file="$4"
   if [[ -n "$ns" ]]; then
@@ -133,13 +140,13 @@ apply_if_missing() {
   log_ok "Aplicado: $file"
 }
 
+# Función para ejecutar despligues con kubectl
 kubectl_apply_file_checked() {
   local file="$1"
 
   log_apply "Aplicando $file"
   kubectl apply -f "$file"
 
-  # Best-effort: intentar inferir namespace desde el manifest
   local ns
   ns="$(
     kubectl get -f "$file" -o jsonpath='{range .items[*]}{.metadata.namespace}{"\n"}{end}' 2>/dev/null \
@@ -154,13 +161,13 @@ kubectl_apply_file_checked() {
   log_ok "Aplicación verificada: $file"
 }
 
+# Función para ejecutar despligues con kubectl Kustomize
 kubectl_apply_kustomize_checked() {
   local dir="$1"
 
   log_apply "Aplicando kustomize: $dir"
   kubectl apply -k "$dir"
 
-  # Best-effort: inferir namespace del output de kustomize
   local ns
   ns="$(
     kubectl kustomize "$dir" 2>/dev/null \
@@ -174,6 +181,54 @@ kubectl_apply_kustomize_checked() {
   wait_ns_pods_ready "$ns"
 
   log_ok "Kustomize verificado: $dir"
+}
+
+# Verificación del Dns local
+ensure_local_dns_hosts() {
+  local hosts="listmonk.local mailpit.local preview-listmonk.local grafana.lab.local localstack.local argocd.local"
+  local hosts_file="/etc/hosts"
+
+  log_apply "Verificando DNS local ($hosts_file)"
+
+  # Autodetectar IP del host
+  local ip=""
+  if command -v ip >/dev/null 2>&1; then
+    ip="$(ip route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i=="src") {print $(i+1); exit}}')"
+  fi
+  # Fallback: primera IP no-loopback de hostname -I
+  if [[ -z "$ip" ]] && command -v hostname >/dev/null 2>&1; then
+    ip="$(hostname -I 2>/dev/null | tr ' ' '\n' | awk 'NF && $1 !~ /^127\./ {print $1; exit}')"
+  fi
+  [[ -n "$ip" ]] || { log_err "No pude autodetectar la IP del host"; exit 1; }
+
+  [[ -w "$hosts_file" ]] || { log_err "No tengo permisos de escritura en $hosts_file (ejecuta como root o con sudo)"; exit 1; }
+
+  # Si TODOS los hosts ya existen en /etc/hosts skip
+  local h missing=0
+  for h in $hosts; do
+    if grep -Eq "^[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]+.*\b${h}\b" "$hosts_file"; then
+      continue
+    else
+      missing=1
+      break
+    fi
+  done
+
+  if [[ "$missing" -eq 0 ]]; then
+    log_warn "DNS local ya configurado (skip)"
+    return 0
+  fi
+
+  # Añadimos UNA línea con la IP detectada y todos los hosts
+  echo "$ip $hosts" >> "$hosts_file"
+
+  # Verificación final (al menos uno con la IP recién añadida)
+  if grep -Eq "^[[:space:]]*${ip//./\.}[[:space:]]+.*\blistmonk\.local\b" "$hosts_file"; then
+    log_ok "DNS local configurado: $ip $hosts"
+  else
+    log_err "No se pudo verificar la entrada añadida en $hosts_file"
+    exit 1
+  fi
 }
 
 # ----------------------------
@@ -200,6 +255,7 @@ fail_if_traefik_present() {
   log_ok "Traefik no detectado"
 }
 
+# verificacaión si existe nginx
 ingress_nginx_present() {
   kubectl get ns ingress-nginx >/dev/null 2>&1 || return 1
   kubectl -n ingress-nginx get deploy/ingress-nginx-controller >/dev/null 2>&1 || return 1
@@ -207,6 +263,7 @@ ingress_nginx_present() {
   return 0
 }
 
+# Añadir ingress-nginx sino existe
 install_ingress_nginx_if_missing() {
   if ingress_nginx_present; then
     log_warn "ingress-nginx ya está instalado (skip)"
@@ -220,7 +277,6 @@ install_ingress_nginx_if_missing() {
   helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
     -n ingress-nginx --create-namespace
 
-  # best-effort waits (como el resto del script)
   kubectl -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=300s >/dev/null 2>&1 || true
   wait_ns_pods_ready ingress-nginx
 
@@ -236,11 +292,20 @@ install_ingress_nginx_if_missing() {
 # ----------------------------
 # checks
 # ----------------------------
-log_apply "Checks..."
+#log_apply "Validando Prerequisitios..."
 need kubectl
 need helm
 need terraform
 need aws
+
+
+# ----------------------------
+# 0) Cluster
+# ----------------------------
+echo "========== 0) Estado del Cluster =========="
+
+# Verificacion DNS-Local
+ensure_local_dns_hosts
 
 kubectl cluster-info >/dev/null
 kubectl wait --for=condition=Ready node --all --timeout=120s >/dev/null
@@ -264,7 +329,6 @@ ensure_ns localstack
 helm_install_and_check localstack localstack localstack/localstack \
   --version 0.6.27 -f "$PROJECT_ROOT/infra/localstack/values-localstack.yaml"
 
-# wait si el deploy existe (mantengo tu validación original)
 if kubectl -n localstack get deploy/localstack >/dev/null 2>&1; then
   kubectl -n localstack rollout status deploy/localstack --timeout=300s >/dev/null 2>&1 || true
   wait_ns_pods_ready localstack
@@ -303,11 +367,10 @@ else
 fi
 
 wait_ns_pods_ready monitoring
-wait_ns_pods_ready listmonk
 echo
 
 # ----------------------------
-# 3) ArgoCD + Rollouts
+#3) ArgoCD + Rollouts
 # ----------------------------
 echo "========== 3) ArgoCD + Rollouts =========="
 helm repo add argo https://argoproj.github.io/argo-helm >/dev/null 2>&1 || true
@@ -322,8 +385,7 @@ helm_install_and_check argocd argocd argo/argo-cd \
 helm_install_and_check argo-rollouts argo-rollouts argo/argo-rollouts \
   -f "$PROJECT_ROOT/infra/argocd/values-rollouts.yaml" --version 2.40.5
 
-# waits (mantengo tu validación original)
-kubectl -n argocd rollout status deploy/argocd-server --timeout=300s >/dev/null 2>&1 || true
+#kubectl -n argocd rollout status deploy/argocd-server --timeout=300s >/dev/null 2>&1 || true
 wait_ns_pods_ready argocd
 wait_ns_pods_ready argo-rollouts
 
@@ -338,7 +400,7 @@ echo
 # ----------------------------
 echo "========== 4) Mail + Webhook =========="
 
-# Mail (kustomize): si el namespace mail ya existe y hay deploy/mailpit, no lo reaplico
+# Mail (kustomize)
 if ns_exists mail && kubectl -n mail get deploy/mailpit >/dev/null 2>&1; then
   log_warn "Mailpit ya existe (skip apply -k infra/mail)"
 else
@@ -346,13 +408,31 @@ else
 fi
 wait_ns_pods_ready mail
 
-# Webhook receiver: si existe deploy/webhook-receiver en monitoring, no reaplico
+# Webhook receiver
 if ns_exists monitoring && kubectl -n monitoring get deploy/webhook-receiver >/dev/null 2>&1; then
   log_warn "webhook-receiver ya existe (skip apply)"
 else
   kubectl_apply_file_checked "$PROJECT_ROOT/infra/monitoring/webhook-receiver-python.yaml"
 fi
 wait_ns_pods_ready monitoring
+
+# ----------------------------
+# Backup S3 Bucket
+# ----------------------------
+echo
+echo "========== 5) Creación S3 Bucket para el Backup =========="
+if aws --endpoint-url="$S3_ENDPOINT" s3 ls "s3://listmonk-postgres-backup" >/dev/null 2>&1; then
+  log_warn "Bucket 'listmonk-postgres-backup' ya existe (skip)"
+else
+  log_apply "Creando bucket 'listmonk-postgres-backup'"
+  if aws --endpoint-url="$S3_ENDPOINT" s3 mb "s3://listmonk-postgres-backup" >/dev/null 2>&1; then
+    log_ok "Bucket 'listmonk-postgres-backup' creado"
+  else
+    log_err "No se pudo crear el bucket 'listmonk-postgres-backup'"
+    exit 1
+  fi
+fi
+
 
 echo
 echo "============================================================"
@@ -371,4 +451,6 @@ echo
 echo -e "${BLUE}Buckets Localstack:${NC}"
 aws --endpoint-url=$S3_ENDPOINT s3 ls || true
 echo
-
+echo -e "${BLUE}Cron Jobs:${NC}"
+kubectl get cronjobs -A
+echo

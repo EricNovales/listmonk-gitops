@@ -66,7 +66,7 @@ check_pods_health() {
     | awk '$3 ~ /(CrashLoopBackOff|Error|Pending|ImagePullBackOff|ErrImagePull|Unknown)/{print $1}')
 
   [[ -z "$bad" ]] \
-    && print_ok "$name pods sanos" \
+    && print_ok "$name pods OK" \
     || print_fail "$name pods con errores"
 }
 

@@ -1,145 +1,122 @@
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
-metadata:
-  name: listmonk-app-resources
-  namespace: monitoring
-  labels:
-    release: kps
-spec:
-  groups:
-    - name: listmonk.app.resources
-      rules:
+additionalPrometheusRulesMap:
+  listmonk-app-resources:
+    groups:
+      - name: listmonk.app.resources
+        rules:
+          - alert: ListmonkHighCPU
+            expr: |
+              sum by (pod) (
+                rate(container_cpu_usage_seconds_total{
+                  namespace="listmonk",
+                  pod=~"listmonk.*",
+                  container!="POD"
+                }[5m])
+              ) > 0.8
+            for: 5m
+            labels:
+              severity: warning
+              app: listmonk
+            annotations:
+              summary: "CPU alta en Listmonk"
+              description: "El pod {{ $labels.pod }} usa >80% de una CPU"
 
-        - alert: ListmonkHighCPU
-          expr: |
-            sum by (pod) (
-              rate(container_cpu_usage_seconds_total{
+          - alert: ListmonkHighMemory
+            expr: |
+              sum by (pod) (
+                container_memory_working_set_bytes{
+                  namespace="listmonk",
+                  pod=~"listmonk.*",
+                  container!="POD"
+                }
+              )
+              /
+              sum by (pod) (
+                kube_pod_container_resource_limits{
+                  namespace="listmonk",
+                  pod=~"listmonk.*",
+                  resource="memory"
+                }
+              ) > 0.9
+            for: 5m
+            labels:
+              severity: warning
+              app: listmonk
+            annotations:
+              summary: "Memoria alta en Listmonk"
+              description: "El pod {{ $labels.pod }} usa >90% del límite de memoria"
+
+  listmonk-http:
+    groups:
+      - name: listmonk.app.http
+        rules:
+          - alert: ListmonkHighLatency
+            expr: |
+              histogram_quantile(
+                0.95,
+                sum by (le) (
+                  rate(http_request_duration_seconds_bucket{
+                    namespace="listmonk",
+                    pod=~"listmonk.*"
+                  }[5m])
+                )
+              ) > 1
+            for: 3m
+            labels:
+              severity: warning
+              app: listmonk
+            annotations:
+              summary: "Latencia HTTP alta en Listmonk"
+              description: "p95 de latencia >1s durante 3 minutos"
+
+          - alert: ListmonkHttp5xx
+            expr: |
+              sum(rate(http_requests_total{
                 namespace="listmonk",
                 pod=~"listmonk.*",
-                container!="POD"
-              }[5m])
-            ) > 0.8
-          for: 5m
-          labels:
-            severity: warning
-            app: listmonk
-          annotations:
-            summary: "CPU alta en Listmonk"
-            description: "El pod {{ $labels.pod }} usa >80% de una CPU"
+                status=~"5.."
+              }[5m]))
+              /
+              sum(rate(http_requests_total{
+                namespace="listmonk",
+                pod=~"listmonk.*"
+              }[5m]))
+              > 0.05
+            for: 2m
+            labels:
+              severity: critical
+              app: listmonk
+            annotations:
+              summary: "Errores 5xx en Listmonk"
+              description: "Más del 5% de requests devuelven 5xx"
 
-        - alert: ListmonkHighMemory
-          expr: |
-            sum by (pod) (
+  listmonk-postgres:
+    groups:
+      - name: listmonk.postgres
+        rules:
+          - alert: ListmonkPostgresDown
+            expr: |
+              up{namespace="listmonk", pod=~"postgres.*"} == 0
+            for: 1m
+            labels:
+              severity: critical
+              app: listmonk
+              component: postgres
+            annotations:
+              summary: "PostgreSQL no responde"
+              description: "El pod de PostgreSQL está caído en listmonk"
+
+          - alert: ListmonkPostgresHighMemory
+            expr: |
               container_memory_working_set_bytes{
                 namespace="listmonk",
-                pod=~"listmonk.*",
+                pod=~"postgres.*",
                 container!="POD"
-              }
-            )
-            /
-            sum by (pod) (
-              kube_pod_container_resource_limits{
-                namespace="listmonk",
-                pod=~"listmonk.*",
-                resource="memory"
-              }
-            ) > 0.9
-          for: 5m
-          labels:
-            severity: warning
-            app: listmonk
-          annotations:
-            summary: "Memoria alta en Listmonk"
-            description: "El pod {{ $labels.pod }} usa >90% del límite de memoria"
----
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
-metadata:
-  name: listmonk-http
-  namespace: monitoring
-  labels:
-    release: kps
-spec:
-  groups:
-    - name: listmonk.app.http
-      rules:
+              } > 1e9
+            for: 5m
+            labels:
+              severity: warning
+              component: postgres
+            annotations:
+              summary: "Memoria alta en PostgreSQL"
+              description: "Postgres usa >1GB de memoria"
 
-        - alert: ListmonkHighLatency
-          expr: |
-            histogram_quantile(
-              0.95,
-              sum by (le) (
-                rate(http_request_duration_seconds_bucket{
-                  namespace="listmonk",
-                  pod=~"listmonk.*"
-                }[5m])
-              )
-            ) > 1
-          for: 3m
-          labels:
-            severity: warning
-            app: listmonk
-          annotations:
-            summary: "Latencia HTTP alta en Listmonk"
-            description: "p95 de latencia >1s durante 3 minutos"
-
-        - alert: ListmonkHttp5xx
-          expr: |
-            sum(rate(http_requests_total{
-              namespace="listmonk",
-              pod=~"listmonk.*",
-              status=~"5.."
-            }[5m]))
-            /
-            sum(rate(http_requests_total{
-              namespace="listmonk",
-              pod=~"listmonk.*"
-            }[5m]))
-            > 0.05
-          for: 2m
-          labels:
-            severity: critical
-            app: listmonk
-          annotations:
-            summary: "Errores 5xx en Listmonk"
-            description: "Más del 5% de requests devuelven 5xx"
-
----
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
-metadata:
-  name: listmonk-postgres
-  namespace: monitoring
-  labels:
-    release: kps
-spec:
-  groups:
-    - name: listmonk.postgres
-      rules:
-
-        - alert: ListmonkPostgresDown
-          expr: |
-            up{namespace="listmonk", pod=~"postgres.*"} == 0
-          for: 1m
-          labels:
-            severity: critical
-            app: listmonk
-            component: postgres
-          annotations:
-            summary: "PostgreSQL no responde"
-            description: "El pod de PostgreSQL está caído en listmonk"
-
-        - alert: ListmonkPostgresHighMemory
-          expr: |
-            container_memory_working_set_bytes{
-              namespace="listmonk",
-              pod=~"postgres.*",
-              container!="POD"
-            } > 1e9
-          for: 5m
-          labels:
-            severity: warning
-            component: postgres
-          annotations:
-            summary: "Memoria alta en PostgreSQL"
-            description: "Postgres usa >1GB de memoria"
