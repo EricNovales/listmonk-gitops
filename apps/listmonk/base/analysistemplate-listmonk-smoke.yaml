@@ -9,8 +9,8 @@ spec:
   metrics:
     - name: http-smoke
       interval: 10s
-      count: 1 #Hace el test X veces
-     # failureLimit: 1
+      count: 5 #Hace el test X veces
+      failureLimit: 2
       # Tratar "0" como éxito
       successCondition: result == 0
       provider:
@@ -37,7 +37,7 @@ spec:
 
                         # Reintentos dentro del job
                         i=0
-                        while [ $i -lt 5 ]; do
+                        while [ $i -lt 20 ]; do
                           code="$(curl -sS -L --max-time 5 -o /tmp/body -w '%{http_code}' '{{args.url}}' || true)"
                           echo "TRY=$i HTTP=$code"
                           if [ "$code" = "200" ] || [ "$code" = "302" ]; then
