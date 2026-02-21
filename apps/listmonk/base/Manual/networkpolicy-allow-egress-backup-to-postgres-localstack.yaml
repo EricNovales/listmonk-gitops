@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backup-egress-postgres-dns-localstack
+  namespace: listmonk
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres-backup
+  policyTypes:
+    - Egress
+  egress:
+
+    # Postgres en el mismo namespace
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+
+    # Localstack en namespace localstack
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: localstack
+      ports:
+        - protocol: TCP
+          port: 4566
+

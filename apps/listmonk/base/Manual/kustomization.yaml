@@ -23,6 +23,9 @@ resources:
   - networkpolicy-allow-egress-analysis.yaml
   - networkpolicy-allow-egress-dns.yaml
   - networkpolicy-default-deny.yaml
+  - postgres-backup-cronjob.yaml
+  - networkpolicy-allow-egress-backup-to-postgres-localstack.yaml
+  - networkpolicy-allow-ingres-from-backup-to-postgres.yaml 
 images:
   - name: ghcr.io/ericnovales/listmonk_ericmod
     newTag: v1.6.0

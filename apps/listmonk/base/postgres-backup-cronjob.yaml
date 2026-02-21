@@ -1,0 +1,63 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: listmonk
+spec:
+  schedule: "0 */6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata:
+          labels:
+            app: postgres-backup
+        spec:
+          enableServiceLinks: false
+          restartPolicy: OnFailure
+          containers:
+            - name: postgres-backup
+              image: ardakilic/postgres-backup-s3:17
+              env:
+                # Postgres
+                - name: POSTGRES_HOST
+                  value: "postgres"
+                - name: POSTGRES_DATABASE
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_DB
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_USER
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_PASSWORD
+
+                # S3 (Localstack)
+                - name: S3_BUCKET
+                  value: "listmonk-postgres-backup"
+                - name: S3_PREFIX
+                  value: "postgres"
+                - name: S3_REGION
+                  value: "eu-west-1"
+                - name: S3_ENDPOINT
+                  value: "http://localstack.localstack.svc.cluster.local:4566"
+                - name: S3_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-user
+                      key: aws-access-key-id
+                - name: S3_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-user
+                      key: aws-secret-access-key
+

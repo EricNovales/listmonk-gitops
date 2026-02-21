@@ -12,4 +12,6 @@
 # Kubeconfig / creds
 kubeconfig*
 
+delete_all_SinTerraform.sh
+
 infra/Terraform/.terraform/

@@ -6,11 +6,23 @@ export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 export AWS_DEFAULT_REGION=us-east-1
 
+# -------------------------------------------------
+# Paths dinámicos (para mover a /scripts)
+# -------------------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Seguridad
 if [[ "${ALLOW_DESTROY:-0}" != "1" ]]; then
   echo "❌ Bloqueado por seguridad."
   echo "   Ejecuta: ALLOW_DESTROY=1 $0"
   exit 1
 fi
+
+
+# -------------------------------------------------
+# Funciones
+# -------------------------------------------------
 
 need() { command -v "$1" >/dev/null || { echo "❌ Falta '$1'"; exit 1; }; }
 

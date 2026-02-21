@@ -12,6 +12,7 @@ resource "helm_release" "kps" {
     file("${path.module}/../monitoring/kps/values.datasources.yaml"),
     file("${path.module}/../monitoring/kps/values.dashboards.yaml"),
     file("${path.module}/../monitoring/kps/values.alerting.yaml"),
+    file("${path.module}/../monitoring/kps/alerts/Alerts.yaml"),
   ]
 
   # Recomendado para que helm falle "bien"
