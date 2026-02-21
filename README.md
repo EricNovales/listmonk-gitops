@@ -21,7 +21,7 @@ Este Repositori contiene el despliegue del entorno para Listmonk. Tiene los sigu
 
 - **kubectl** - Cliente de Kubernetes ([instalación](https://kubernetes.io/docs/tasks/tools/))
 - **Helm** - Gestor de paquetes de Kubernetes ([instalación](https://helm.sh/docs/intro/install/))
-- **Terrafomr** - 
+- **Terraform** - 
 - **AWScli** - 
 - **Argo-rollouts** -
 
@@ -39,14 +39,18 @@ Carpeta: infra/Terraform/secrets/
 - grafana-admin.secret_plain_CONFIGURABLE.yaml
 - postgres-secret-plain_CONFIGURABLE.yaml
 
+Cifralo con sealed secret
+
+kubeseal --controller-namespace kube-system --format yaml < XXXX-secret-plain.yaml > XXXX-sealedsecret.yaml
+
 ### Otros
 
 - Es necesario añadir Renovate a tu repositorio
 
 
-## 🚀 Inicio Rápido
+## Instalación Script
 
-### 1. Instalar K3s (opcional pero recomendado)
+### 1. Instalar K3s (opcional)
 
 ```bash
 ./scripts/install-k3s.sh
@@ -85,24 +89,23 @@ Este script automáticamente:
 
 ## Accesos y Servicios
 
-### Aplicación Web
+### Aplicación
 
-- **URL:** Configurar Ingress o usar port-forward
-- **Port-forward:** `kubectl port-forward -n la-huella-8 svc/app 8080:80`
-- **Certificado SSL:** Autofirmado (válido por 40 días)
+- listmonk: http://listmonk.local
+- mail: http://mailpit.local
 
 ### Observabilidad
 
-| Servicio       | URL                    | Credenciales | Descripción                |
-| -------------- | ---------------------- | ------------ | -------------------------- |
-| **Grafana**    | http://localhost:30000 | admin/admin  | Dashboards y visualización |
-| **Prometheus** | http://localhost:30001 | -            | Métricas y alertas         |
-| **Loki**       | http://localhost:30002 | -            | Logs centralizados         |
+- Grafana: http://grafana.local
 
+### Herramientas
+
+- localstack: http://localstack.local
+- argocd: http://argocd.local
 
 ---
 
-# Listmonk GitOps (Renovate + ArgoCD + Argo Rollouts)
+# Listmonk GitOps Estrategia de depliegue (Renovate + ArgoCD + Argo Rollouts)
 
 Este repositorio contiene el despliegue **GitOps** de la aplicación **Listmonk** en Kubernetes usando:
 
@@ -111,7 +114,8 @@ Este repositorio contiene el despliegue **GitOps** de la aplicación **Listmonk*
 - **Argo Rollouts (Blue/Green)**
 - **Renovate (GitHub App)** para actualización automática de imágenes
 
-Automatizar el flujo:
+#### Flujo:
+
 **nueva imagen → PR GitOps → merge → despliegue Blue/Green**.
 
 ---
@@ -138,3 +142,102 @@ ArgoCD sincroniza
         ▼
 Argo Rollouts (Blue/Green + análisis)
 
+
+## Stack de Monitoring
+
+### Herramientas Instaladas
+
+- **Grafana** - Dashboards y visualización
+- **Prometheus** - Recolección de métricas y alertas
+- **Loki** - Sistema de logs centralizado
+- **kube-state-metrics** - Métricas de estado del cluster
+- **AlertManager** - Gestión de alertas
+- **pg-exporter** - Métricas de Postgres
+- Webhook - Conetener recivir alertas enviadas
+
+### Dashboards Incluidos
+
+- Estado Aplicacion
+- Dashboards de Cluster
+- Estado Database
+
+## 📁 Estructura del Proyecto
+
+```
+listmonk_Kubernetes/
+├── README.md
+├── apps
+│   └── listmonk
+│       └── base
+│           ├── analysistemplate-listmonk-smoke.yaml
+│           ├── kustomization.yaml
+│           ├── kustomization.yaml.backup
+│           ├── listmonk-ingress.yaml
+│           ├── listmonk-preview-ingress.yaml
+│           ├── listmonk-preview-svc.yaml
+│           ├── listmonk-rollout.yaml
+│           ├── listmonk-svc.yaml
+│           ├── listmonk-uploads-pvc.yaml
+│           ├── postgres-backup-cronjob.yaml
+│           ├── postgres-deploy.yaml
+│           ├── postgres-pvc.yaml
+│           └── postgres-svc.yaml
+├── infra
+│   ├── Terraform
+│   │   ├── backend.tf
+│   │   ├── kps.tf
+│   │   ├── listmonk_network_policies.tf
+│   │   ├── loki.tf
+│   │   ├── mail_network_policies.tf
+│   │   ├── namespaces.tf
+│   │   ├── pg_exporter.tf
+│   │   ├── pg_exporter_network_policies.tf
+│   │   ├── postgres-backup_network_policies.tf
+│   │   ├── promtail.tf
+│   │   ├── providers.tf
+│   │   ├── sealdsecret_aws_user.tf
+│   │   ├── sealdsecret_grafana.tf
+│   │   ├── sealdsecret_listmonk-postgres.tf
+│   │   ├── secrets
+│   │   │   ├── aws-user.sealedsecret.yaml
+│   │   │   ├── aws-user.secret.plain_CONFIGURABLE.yaml
+│   │   │   ├── grafana-admin.sealedsecret.yaml
+│   │   │   ├── grafana-admin.secret_plain_CONFIGURABLE.yaml
+│   │   │   ├── postgres-sealedsecret.yaml
+│   │   │   └── postgres-secret-plain_CONFIGURABLE.yaml
+│   │   └── serviceaccount.tf
+│   ├── argocd
+│   │   ├── argocd-app-listmonk.yaml
+│   │   ├── argocd-project-listmonk.yaml
+│   │   ├── values-argocd.yaml
+│   │   └── values-rollouts.yaml
+│   ├── localstack
+│   │   ├── localstack-ingress.yaml
+│   │   └── values-localstack.yaml
+│   ├── mail
+│   │   ├── kustomization.yaml
+│   │   ├── mailpit-deploy.yaml
+│   │   ├── mailpit-ingress.yaml
+│   │   └── mailpit-svc.yaml
+│   └── monitoring
+│       ├── kps
+│       │   ├── alerts
+│       │   │   ├── Alerts.yaml
+│       │   ├── values.alerting.yaml
+│       │   ├── values.base.yaml
+│       │   ├── values.dashboards.yaml
+│       │   ├── values.datasources.yaml
+│       │   ├── values.grafana.yaml
+│       │   ├── values.ingress.yaml
+│       │   └── webhook-test.yaml
+│       ├── values-loki.yaml
+│       ├── values-promtail.yaml
+│       ├── values.postgres-exporter.yaml
+│       └── webhook-receiver-python.yaml
+├── renovate.json
+└── scripts
+    ├── destroy_all.sh
+    ├── k3s-status.sh
+    └── k3s_install_config_v3.sh
+
+```

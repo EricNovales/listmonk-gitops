@@ -249,7 +249,7 @@ fail_if_traefik_present() {
   if detect_traefik; then
     log_err "Detectado Traefik en el cluster."
     log_err "Este script SOLO funciona con ingress-nginx."
-    log_err "Desactiva/borra Traefik y vuelve a ejecutar (en k3s suele ser --disable traefik al instalar)."
+    log_err "Desactiva/borra Traefik y vuelve a ejecutar"
     exit 1
   fi
   log_ok "Traefik no detectado"
@@ -289,6 +289,49 @@ install_ingress_nginx_if_missing() {
   fi
 }
 
+sealed_secrets_present() {
+  
+  if kubectl get ns sealed-secrets >/dev/null 2>&1; then
+    kubectl -n sealed-secrets get deploy sealed-secrets >/dev/null 2>&1 && return 0
+    kubectl -n sealed-secrets get deploy sealed-secrets-controller >/dev/null 2>&1 && return 0
+  fi
+
+  kubectl -n kube-system get deploy sealed-secrets-controller >/dev/null 2>&1 && return 0
+
+  return 1
+}
+
+install_sealed_secrets_if_missing() {
+  if sealed_secrets_present; then
+    log_warn "sealed-secrets ya está instalado (skip)"
+    return 0
+  fi
+
+  log_install "sealed-secrets no detectado. Instalando..."
+
+  # Repo oficial del chart (bitnami-labs)
+  helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets >/dev/null 2>&1 || true
+  helm repo update >/dev/null
+
+  # Instalación en namespace dedicado (recomendado)
+  helm upgrade --install sealed-secrets sealed-secrets/sealed-secrets \
+    -n sealed-secrets --create-namespace
+
+  # Validación best-effort, alineada con tu estilo
+  kubectl -n sealed-secrets rollout status deploy/sealed-secrets --timeout=300s >/dev/null 2>&1 || true
+  wait_ns_pods_ready sealed-secrets
+
+  if sealed_secrets_present; then
+    log_ok "sealed-secrets instalado y verificado"
+  else
+    log_err "Instalación/verificación de sealed-secrets fallida o incompleta."
+    log_err "Revisa: kubectl -n sealed-secrets get pods,deploy,svc"
+    exit 1
+  fi
+}
+
+
+
 # ----------------------------
 # checks
 # ----------------------------
@@ -302,7 +345,7 @@ need aws
 # ----------------------------
 # 0) Cluster
 # ----------------------------
-echo "========== 0) Estado del Cluster =========="
+echo "========== 0) Estado del Cluster y Componentes  =========="
 
 # Verificacion DNS-Local
 ensure_local_dns_hosts
@@ -310,9 +353,12 @@ ensure_local_dns_hosts
 kubectl cluster-info >/dev/null
 kubectl wait --for=condition=Ready node --all --timeout=120s >/dev/null
 
-# Bloquear Traefik y asegurar ingress-nginx
+# Bloquear Traefik y Instalar/Verificar ingress-nginx
 fail_if_traefik_present
 install_ingress_nginx_if_missing
+
+# Verificar/Instalar Sealed Secret
+install_sealed_secrets_if_missing
 
 log_ok "Cluster listo"
 echo
@@ -353,21 +399,43 @@ fi
 # ----------------------------
 # 2) Terraform
 # ----------------------------
+echo
 echo "========== 2) Terraform =========="
+
 if [[ -d "$PROJECT_ROOT/infra/Terraform" ]]; then
   pushd "$PROJECT_ROOT/infra/Terraform" >/dev/null
 
-  terraform init
-  terraform apply -auto-approve
+  # Crear directorio logs si no existe
+  LOG_DIR="$PROJECT_ROOT/logs"
+  mkdir -p "$LOG_DIR"
+
+  # Timestamp
+  TIMESTAMP="$(date +'%Y%m%d_%H%M%S')"
+  TF_LOG_FILE="$LOG_DIR/terraform_${TIMESTAMP}.log"
+
+  log_apply "Inicializando Terraform"
+  if ! terraform init -input=false -no-color >"$TF_LOG_FILE" 2>&1; then
+    log_err "Terraform init falló. Revisa $TF_LOG_FILE"
+    popd >/dev/null
+    exit 1
+  fi
+
+  log_apply "Aplicando infraestructura"
+  if terraform apply -auto-approve -input=false -no-color >>"$TF_LOG_FILE" 2>&1; then
+    log_ok "Terraform aplicado correctamente"
+    log_ok "Log guardado en: $TF_LOG_FILE"
+  else
+    log_err "Terraform apply falló. Revisa $TF_LOG_FILE"
+    popd >/dev/null
+    exit 1
+  fi
 
   popd >/dev/null
 else
-  log_err "No existe infra/Terraform (ajusta la ruta en el script)"
+  log_err "No existe infra/Terraform"
   exit 1
 fi
-
 wait_ns_pods_ready monitoring
-echo
 
 # ----------------------------
 #3) ArgoCD + Rollouts
