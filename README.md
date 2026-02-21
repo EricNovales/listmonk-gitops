@@ -119,7 +119,7 @@ Este repositorio contiene el despliegue **GitOps** de la aplicación **Listmonk*
 **nueva imagen → PR GitOps → merge → despliegue Blue/Green**.
 
 ---
-
+```
 ## Arquitectura del flujo
 
 Repo app (listmonk)
@@ -141,7 +141,7 @@ ArgoCD sincroniza
         │
         ▼
 Argo Rollouts (Blue/Green + análisis)
-
+```
 
 ## Stack de Monitoring
 
