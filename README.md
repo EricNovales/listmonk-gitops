@@ -158,9 +158,19 @@ Argo Rollouts (Blue/Green + análisis)
 
 ### Dashboards Incluidos
 
-- Estado Aplicacion
-- Dashboards de Cluster
-- Estado Database
+- listmonk - Salut App
+- K3s Cluster Monitoring Status
+- Postgres Metricas Db
+
+
+### Alertas Añadidas
+
+- Listmonk CPU
+- Listmonk Memory
+- Listmonk Latency
+- Listmonk Http 500
+- Postgres Down
+- Postgres Memory
 
 ## 📁 Estructura del Proyecto
 

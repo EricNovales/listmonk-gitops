@@ -31,7 +31,8 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 YELLOW='\033[0;33m'
 NC='\033[0m'
-
+BOLD='\033[1m'
+CYAN='\033[0;36m'
 # -------------------------------------------------
 # Trap global de error
 # -------------------------------------------------
@@ -54,8 +55,15 @@ exec >"$BOOTSTRAP_LOG" 2>&1
 
 # Eescribir en consola y también en log
 log_console() {
-  echo -e "$1" >&3   # consola real
-  echo -e "$1"       # log (stdout ya redirigido)
+#  echo -e "$1" >&3   # consola real
+#  echo -e "$1"       # log (stdout ya redirigido)
+local msg="$1"
+  msg="${msg//$'\r'/}"
+  while [[ "$msg" == *$'\n' ]]; do msg="${msg%$'\n'}"; done
+
+  # Imprimir una sola vez con salto final controlado
+  printf "%b\n" "$msg" >&3   # consola real
+  printf "%b\n" "$msg"       # log
 }
 
 # Tipos de loggin
@@ -158,32 +166,49 @@ helm_install_and_check() {
 }
 
 ########### Verificacion especial para listmonk ###########
+
 wait_rollout_ready() {
   local ns="$1" ro="$2"
-  local timeout="${3:-600s}"
+  local timeout_sec="${3:-600}"
 
-  log_apply "Esperando a que exista rollout/$ro en '$ns'..."
-  local start
-  start="$(date +%s)"
-  local max_wait=600  # segundos para que aparezca
+  local timeout_kubectl="${timeout_sec}s"
 
-  while ! kubectl -n "$ns" get rollout "$ro" >/dev/null 2>&1; do
-    sleep 3
-    if (( $(date +%s) - start > max_wait )); then
-      log_err "Timeout esperando a que aparezca rollout/$ro en '$ns'"
-      return 1
-    fi
-  done
+  # Esperar a que exista
+  if ! kubectl -n "$ns" get rollout "$ro" >/dev/null 2>&1; then
+    log_apply "Esperando a que exista rollout/$ro en '$ns'..."
+    local start
+    start="$(date +%s)"
+    while ! kubectl -n "$ns" get rollout "$ro" >/dev/null 2>&1; do
+      sleep 3
+      if (( $(date +%s) - start > timeout_sec )); then
+        log_err "Timeout esperando a que aparezca rollout/$ro"
+        return 1
+      fi
+    done
+  fi
 
-  log_apply "Esperando rollout status de rollout/$ro en '$ns'..."
-  kubectl -n "$ns" argo rollouts status "$ro" --timeout "$timeout" >/dev/null 2>&1 || true
+  # Comprobar si ya está listo
+  local desired available
+  desired="$(kubectl -n "$ns" get rollout "$ro" -o jsonpath='{.spec.replicas}' 2>/dev/null || echo 1)"
+  available="$(kubectl -n "$ns" get rollout "$ro" -o jsonpath='{.status.availableReplicas}' 2>/dev/null || echo 0)"
 
-  # Esperar pods listos (si ya están, no hará nada)
-  wait_ns_pods_ready "$ns"
+  if [[ "$available" -ge "$desired" ]]; then
+    log_warn "rollout/$ro ya está listo (skip wait)"
+    return 0
+  fi
 
-  log_ok "rollout/$ro listo en '$ns'"
+  log_apply "Esperando rollout/$ro..."
+  kubectl -n "$ns" wait --for=condition=Available "rollout/$ro" --timeout="$timeout_kubectl" >/dev/null 2>&1 || true
+
+  available="$(kubectl -n "$ns" get rollout "$ro" -o jsonpath='{.status.availableReplicas}' 2>/dev/null || echo 0)"
+
+  if [[ "$available" -ge "$desired" ]]; then
+    log_ok "rollout/$ro listo"
+    return 0
+  fi
+
+  log_err "rollout/$ro no está listo tras esperar"
 }
-
 
 
 ########### Función para ejecutar ficheros con Kubectl ###########
@@ -407,7 +432,7 @@ need helm
 need terraform
 need aws
 
-
+log_console ""
 # ----------------------------
 # 0) Cluster
 # ----------------------------
@@ -427,17 +452,15 @@ install_ingress_nginx_if_missing
 install_sealed_secrets_if_missing
 
 log_ok "Cluster listo"
-echo
 
+log_console ""
 # ----------------------------
 # 1) Localstack + bucket
 # ----------------------------
 log_console "========== 1) Localstack =========="
 helm repo add localstack https://localstack.github.io/helm-charts >/dev/null 2>&1 || true
 helm repo update >/dev/null
-
 ensure_ns localstack
-
 helm_install_and_check localstack localstack localstack/localstack \
   --version 0.6.27 -f "$PROJECT_ROOT/infra/localstack/values-localstack.yaml"
 
@@ -445,11 +468,9 @@ if kubectl -n localstack get deploy/localstack >/dev/null 2>&1; then
   kubectl -n localstack rollout status deploy/localstack --timeout=300s >/dev/null 2>&1 || true
   wait_ns_pods_ready localstack
 fi
-
 # ----------------------------
 # Bucket terraform-state
 # ----------------------------
-
 if aws --endpoint-url="$S3_ENDPOINT" s3 ls "s3://$BUCKET_NAME_TERRAFORM" >/dev/null 2>&1; then
   log_warn "Bucket '$BUCKET_NAME_TERRAFORM' ya existe (skip)"
 else
@@ -461,30 +482,40 @@ else
     exit 1
   fi
 fi
-
+log_console ""
 # ----------------------------
 # 2) Terraform
 # ----------------------------
-echo
 log_console "========== 2) Terraform =========="
 
 if [[ -d "$PROJECT_ROOT/infra/Terraform" ]]; then
   pushd "$PROJECT_ROOT/infra/Terraform" >/dev/null
 
   log_apply "Inicializando Terraform"
-  terraform init -input=false -no-color
+  terraform init -input=false -no-color >/dev/null
 
-  log_apply "Aplicando infraestructura"
-  terraform apply -auto-approve -input=false -no-color
+  log_apply "Comprobando cambios en infraestructura"
+  set +e
+  terraform plan -detailed-exitcode -input=false -no-color >/dev/null
+  TF_PLAN_EXIT=$?
+  set -e
 
-  log_ok "Terraform aplicado correctamente"
+  if [[ $TF_PLAN_EXIT -eq 0 ]]; then
+    log_ok "No hay cambios en la infraestructura"
+  elif [[ $TF_PLAN_EXIT -eq 2 ]]; then
+    log_apply "Cambios detectados. Aplicando..."
+    terraform apply -auto-approve -input=false -no-color >/dev/null
+    log_ok "Cambios aplicados correctamente"
+  else
+    log_err "Terraform plan falló"
+  fi
 
   popd >/dev/null
 else
-  log_err "No existe infra/Terraform (ajusta la ruta en el script)"
+  log_err "No existe infra/Terraform"
 fi
 wait_ns_pods_ready monitoring
-
+log_console ""
 # ----------------------------
 #3) ArgoCD + Rollouts
 # ----------------------------
@@ -509,13 +540,12 @@ apply_if_missing "appproject.argoproj.io" "listmonk" "argocd" "$PROJECT_ROOT/inf
 apply_if_missing "application.argoproj.io" "listmonk" "argocd" "$PROJECT_ROOT/infra/argocd/argocd-app-listmonk.yaml"
 
 wait_rollout_ready listmonk listmonk 600s
-echo
 
+log_console ""
 # ----------------------------
 # 4) Mail + webhook receiver
 # ----------------------------
 log_console "========== 4) Mail + Webhook =========="
-
 # Mail (kustomize)
 if ns_exists mail && kubectl -n mail get deploy/mailpit >/dev/null 2>&1; then
   log_warn "Mailpit ya existe (skip apply -k infra/mail)"
@@ -531,11 +561,10 @@ else
   kubectl_apply_file_checked "$PROJECT_ROOT/infra/monitoring/webhook-receiver-python.yaml"
 fi
 wait_ns_pods_ready monitoring
-
+log_console ""
 # ----------------------------
 # Backup S3 Bucket
 # ----------------------------
-echo
 log_console "========== 5) Creación S3 Bucket para el Backup =========="
 if aws --endpoint-url="$S3_ENDPOINT" s3 ls "s3://listmonk-postgres-backup" >/dev/null 2>&1; then
   log_warn "Bucket 'listmonk-postgres-backup' ya existe (skip)"
@@ -549,29 +578,45 @@ else
   fi
 fi
 
-
-echo
+log_console ""
 log_console "============================================================"
-log_console "${GREEN}BOOTSTRAP COMPLETADO${NC}"
+log_console "${BLUE}${BOLD}BOOTSTRAP COMPLETADO${NC}"
 log_console "============================================================"
-echo
+log_console ""
 log_console "${BLUE}Namespaces:${NC}"
 run_summary kubectl get ns
-echo
+log_console ""
 log_console "${BLUE}Helm releases:${NC}"
 run_summary helm list -A
-echo
+log_console ""
 log_console "${BLUE}Pods:${NC}"
 run_summary kubectl get pods -A
-echo
+log_console ""
 log_console "${BLUE}Buckets Localstack:${NC}"
 run_summary aws --endpoint-url=$S3_ENDPOINT s3 ls || true
-echo
+log_console ""
 log_console "${BLUE}Cron Jobs:${NC}"
 run_summary kubectl get cronjobs -A
-echo
+log_console ""
 log_console "${BLUE}Rollouts listmonk:${NC}" 
 run_summary kubectl -n listmonk get rollout || true
 log_ok "Bootstrap completado"
 log_ok "Log completo: $BOOTSTRAP_LOG"
 
+log_console ""
+log_console "${BLUE}============================================================${NC}"
+log_console "${BLUE}${BOLD}ACCESOS A SERVICIOS${NC}"
+log_console "${BLUE}============================================================${NC}"
+log_console ""
+log_console "${CYAN}${BOLD}Aplicaciones:${NC}"
+log_console "  ${GREEN}listmonk:${NC}      http://listmonk.local"
+log_console "  ${GREEN}mail:${NC}          http://mailpit.local"
+log_console ""
+log_console "${CYAN}${BOLD}Observabilidad:${NC}"
+log_console "  ${GREEN}Grafana:${NC}       http://grafana.local"
+log_console ""
+log_console "${CYAN}${BOLD}Herramientas:${NC}"
+log_console "  ${GREEN}Localstack:${NC}    http://localstack.local"
+log_console "  ${GREEN}ArgoCD:${NC}        http://argocd.local"
+log_console ""
+log_console "${BLUE}============================================================${NC}"

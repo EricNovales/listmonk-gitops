@@ -25,6 +25,3 @@ grafana:
   persistence:
     enabled: false
 
-  sidecar:
-    dashboards:
-      enabled: false
