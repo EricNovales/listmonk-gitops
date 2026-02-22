@@ -1,0 +1,1866 @@
+========== 0) Estado del Cluster y Componentes  ==========
+[0;34m[APPLYING][0m Verificando DNS local (/etc/hosts)
+[0;33m[WARNING][0m DNS local ya configurado (skip)
+[0;32m[OK][0m Traefik no detectado
+[0;33m[WARNING][0m ingress-nginx ya está instalado (skip)
+[0;33m[WARNING][0m sealed-secrets ya está instalado (skip)
+[0;32m[OK][0m Cluster listo
+
+========== 1) Localstack ==========
+[0;34m[APPLYING][0m Creando namespace 'localstack'
+namespace/localstack created
+[0;32m[OK][0m Namespace 'localstack' creado
+[0;34m[INSTALLING][0m Helm release 'localstack' en ns 'localstack'
+Release "localstack" does not exist. Installing it now.
+W0222 09:10:28.577607    6917 warnings.go:70] spec.template.spec.containers[0].env[14]: hides previous definition of "DEBUG", which may be dropped when using apply
+NAME: localstack
+LAST DEPLOYED: Sun Feb 22 09:10:26 2026
+NAMESPACE: localstack
+STATUS: deployed
+REVISION: 1
+NOTES:
+1. Get the application URL by running these commands:
+  http://localstack.local/
+[0;32m[OK][0m Helm release 'localstack' instalado y verificado
+[0;34m[APPLYING][0m Creando bucket 'terraform-state'
+[0;32m[OK][0m Bucket 'terraform-state' creado
+
+========== 2) Terraform ==========
+[0;34m[APPLYING][0m Inicializando Terraform
+Initializing the backend...
+Initializing provider plugins...
+- Reusing previous version of hashicorp/kubernetes from the dependency lock file
+- Reusing previous version of hashicorp/helm from the dependency lock file
+- Using previously-installed hashicorp/kubernetes v3.0.1
+- Using previously-installed hashicorp/helm v3.1.1
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+[0;34m[APPLYING][0m Aplicando infraestructura
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # helm_release.kps will be created
+  + resource "helm_release" "kps" {
+      + atomic                     = true
+      + chart                      = "kube-prometheus-stack"
+      + cleanup_on_fail            = true
+      + create_namespace           = false
+      + dependency_update          = false
+      + disable_crd_hooks          = false
+      + disable_openapi_validation = false
+      + disable_webhooks           = false
+      + force_update               = false
+      + id                         = (known after apply)
+      + lint                       = false
+      + max_history                = 0
+      + metadata                   = (known after apply)
+      + name                       = "kps"
+      + namespace                  = "monitoring"
+      + pass_credentials           = false
+      + recreate_pods              = false
+      + render_subchart_notes      = true
+      + replace                    = false
+      + repository                 = "https://prometheus-community.github.io/helm-charts"
+      + reset_values               = false
+      + reuse_values               = false
+      + set_wo                     = (write-only attribute)
+      + skip_crds                  = false
+      + status                     = "deployed"
+      + take_ownership             = false
+      + timeout                    = 900
+      + upgrade_install            = false
+      + values                     = [
+          + <<-EOT
+                global:
+                  rbac:
+                    create: true
+                
+                defaultRules:
+                  create: false
+                
+                
+                prometheusOperator:
+                  resources:
+                    requests:
+                      cpu: 5m
+                      memory: 128Mi
+                    limits:
+                      cpu: 200m
+                      memory: 256Mi
+                
+                prometheus:
+                  prometheusSpec:
+                    retention: 7d
+                    resources:
+                      requests:
+                        cpu: 200m
+                        memory: 500Mi
+                      limits:
+                        cpu: 500m
+                        memory: 1Gi
+                    storageSpec:
+                      volumeClaimTemplate:
+                        spec:
+                          accessModes: ["ReadWriteOnce"]
+                          resources:
+                            requests:
+                              storage: 20Gi
+                
+                alertmanager:
+                  alertmanagerSpec:
+                    resources:
+                      requests:
+                        cpu: 50m
+                        memory: 128Mi
+                      limits:
+                        cpu: 200m
+                        memory: 256Mi
+                
+                
+                kubeStateMetrics:
+                  resources:
+                    requests:
+                      cpu: 30m
+                      memory: 64Mi
+                    limits:
+                      cpu: 200m
+                      memory: 256Mi
+                
+                #Deshabilitado Node-Exporter
+                nodeExporter:
+                  enabled: false
+            EOT,
+          + <<-EOT
+                grafana:
+                  enabled: true
+                  defaultDashboardsEnabled: false
+                  
+                  admin:
+                    existingSecret: grafana-admin
+                    userKey: admin-user
+                    passwordKey: admin-password
+                
+                  serviceAccount:
+                    create: true
+                    name: grafana
+                
+                  rbac:
+                    create: true
+                
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 256Mi
+                    limits:
+                      cpu: 500m
+                      memory: 512Mi
+                
+                  persistence:
+                    enabled: false
+                
+                  sidecar:
+                    dashboards:
+                      enabled: false
+            EOT,
+          + <<-EOT
+                grafana:
+                  ingress:
+                    enabled: true
+                    ingressClassName: nginx
+                    annotations:
+                      nginx.ingress.kubernetes.io/proxy-body-size: "64m"
+                      nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+                      nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+                    hosts:
+                      - grafana.lab.local
+                    path: /
+                    pathType: Prefix
+            EOT,
+          + <<-EOT
+                grafana:
+                  datasources:
+                    datasources.yaml:
+                      apiVersion: 1
+                      datasources:
+                        - name: Loki
+                          type: loki
+                          access: proxy
+                          url: http://loki.monitoring.svc.cluster.local:3100
+                          editable: false
+            EOT,
+          + <<-EOT
+                grafana:
+                  # Necesario para que Grafana cargue dashboards desde ConfigMaps generados por Helm
+                  sidecar:
+                    dashboards:
+                      enabled: true
+                
+                  dashboardProviders:
+                    dashboardproviders.yaml:
+                      apiVersion: 1
+                      providers:
+                        - name: custom
+                          orgId: 1
+                          folder: "Custom"
+                          type: file
+                          disableDeletion: true
+                          editable: true
+                          options:
+                            path: /var/lib/grafana/dashboards/custom
+                
+                  dashboards:
+                    custom:
+                      01-cluster:
+                        json: |
+                          {
+                            "uid": "cluster-state",
+                            "title": "Cluster - Estado FEO (KSM)",
+                            "schemaVersion": 38,
+                            "version": 1,
+                            "refresh": "10s",
+                            "panels": [
+                              {
+                                "type": "timeseries",
+                                "title": "Pods Running (all namespaces)",
+                                "datasource": "Prometheus",
+                                "targets": [{"refId":"A","expr":"sum(kube_pod_status_phase{phase=\"Running\"})"}],
+                                "gridPos": {"x":0,"y":0,"w":12,"h":8}
+                              },
+                              {
+                                "type": "timeseries",
+                                "title": "Pods Pending (all namespaces)",
+                                "datasource": "Prometheus",
+                                "targets": [{"refId":"A","expr":"sum(kube_pod_status_phase{phase=\"Pending\"})"}],
+                                "gridPos": {"x":12,"y":0,"w":12,"h":8}
+                              },
+                              {
+                                "type": "timeseries",
+                                "title": "Container Restarts (rate)",
+                                "datasource": "Prometheus",
+                                "targets": [{"refId":"A","expr":"sum(rate(kube_pod_container_status_restarts_total[5m]))"}],
+                                "gridPos": {"x":0,"y":8,"w":12,"h":8}
+                              },
+                              {
+                                "type": "timeseries",
+                                "title": "Deployments: desired vs available",
+                                "datasource": "Prometheus",
+                                "targets": [
+                                  {"refId":"A","expr":"sum(kube_deployment_spec_replicas)"},
+                                  {"refId":"B","expr":"sum(kube_deployment_status_replicas_available)"}
+                                ],
+                                "gridPos": {"x":12,"y":8,"w":12,"h":8}
+                              },
+                              {
+                                "type": "stat",
+                                "title": "PVC Pending",
+                                "datasource": "Prometheus",
+                                "targets": [{"refId":"A","expr":"sum(kube_persistentvolumeclaim_status_phase{phase=\"Pending\"})"}],
+                                "gridPos": {"x":0,"y":16,"w":6,"h":5}
+                              }
+                            ]
+                          }
+                
+                      02-listmonk-app:
+                        json: |
+                          {
+                            "uid": "listmonk-app",
+                            "title": "Listmonk - Salud aplicación",
+                            "schemaVersion": 38,
+                            "version": 1,
+                            "refresh": "10s",
+                            "panels": [
+                              {
+                                "type": "timeseries",
+                                "title": "Deployments listmonk: desired vs available",
+                                "datasource": "Prometheus",
+                                "targets": [
+                                  {"refId":"A","expr":"sum(kube_deployment_spec_replicas{namespace=\"listmonk\"})"},
+                                  {"refId":"B","expr":"sum(kube_deployment_status_replicas_available{namespace=\"listmonk\"})"}
+                                ],
+                                "gridPos": {"x":0,"y":0,"w":24,"h":8}
+                              },
+                              {
+                                "type": "timeseries",
+                                "title": "Restarts (namespace=listmonk)",
+                                "datasource": "Prometheus",
+                                "targets": [{"refId":"A","expr":"sum(rate(kube_pod_container_status_restarts_total{namespace=\"listmonk\"}[5m]))"}],
+                                "gridPos": {"x":0,"y":8,"w":12,"h":8}
+                              },
+                              {
+                                "type": "timeseries",
+                                "title": "Pods NOT Running (namespace=listmonk)",
+                                "datasource": "Prometheus",
+                                "targets": [{"refId":"A","expr":"sum(kube_pod_status_phase{namespace=\"listmonk\",phase!=\"Running\"})"}],
+                                "gridPos": {"x":12,"y":8,"w":12,"h":8}
+                              },
+                              {
+                                "type": "logs",
+                                "title": "Logs (namespace=listmonk)",
+                                "datasource": "Loki",
+                                "targets": [{"refId":"A","expr":"{namespace=\"listmonk\"}"}],
+                                "gridPos": {"x":0,"y":16,"w":24,"h":10}
+                              }
+                            ]
+                          }
+                
+                      03-postgres:
+                        json: |
+                          {
+                            "uid": "postgres-db",
+                            "title": "Postgres - Métricas DB",
+                            "schemaVersion": 38,
+                            "version": 1,
+                            "refresh": "10s",
+                            "panels": [
+                              {
+                                "type": "stat",
+                                "title": "Postgres UP",
+                                "datasource": "Prometheus",
+                                "targets": [{"refId":"A","expr":"max(pg_up)"}],
+                                "gridPos": {"x":0,"y":0,"w":6,"h":5}
+                              },
+                              {
+                                "type": "timeseries",
+                                "title": "Connections",
+                                "datasource": "Prometheus",
+                                "targets": [{"refId":"A","expr":"sum(pg_stat_activity_count)"}],
+                                "gridPos": {"x":6,"y":0,"w":18,"h":8}
+                              },
+                              {
+                                "type": "timeseries",
+                                "title": "Transactions commit/rollback (rate)",
+                                "datasource": "Prometheus",
+                                "targets": [
+                                  {"refId":"A","expr":"sum(rate(pg_stat_database_xact_commit[5m]))"},
+                                  {"refId":"B","expr":"sum(rate(pg_stat_database_xact_rollback[5m]))"}
+                                ],
+                                "gridPos": {"x":0,"y":8,"w":24,"h":8}
+                              },
+                              {
+                                "type": "timeseries",
+                                "title": "Cache hit ratio (approx)",
+                                "datasource": "Prometheus",
+                                "targets": [
+                                  {
+                                    "refId":"A",
+                                    "expr":"sum(rate(pg_stat_database_blks_hit[5m])) / (sum(rate(pg_stat_database_blks_hit[5m])) + sum(rate(pg_stat_database_blks_read[5m])))"
+                                  }
+                                ],
+                                "gridPos": {"x":0,"y":16,"w":24,"h":8}
+                              }
+                            ]
+                          }
+            EOT,
+          + <<-EOT
+                alertmanager:
+                  config:
+                    global:
+                      resolve_timeout: 5m
+                
+                    route:
+                      group_by: ["namespace", "alertname"]
+                      group_wait: 30s
+                      group_interval: 5m
+                      repeat_interval: 2h
+                      receiver: "webhook-receiver"
+                
+                      routes:
+                        - receiver: "null"
+                          matchers:
+                            - alertname = "Watchdog"
+                
+                    receivers:
+                      - name: "null"
+                
+                      - name: "webhook-receiver"
+                        webhook_configs:
+                          - url: "http://webhook-receiver.monitoring.svc.cluster.local:8080"
+                            send_resolved: true
+            EOT,
+          + <<-EOT
+                additionalPrometheusRulesMap:
+                  listmonk-app-resources:
+                    groups:
+                      - name: listmonk.app.resources
+                        rules:
+                          - alert: ListmonkHighCPU
+                            expr: |
+                              sum by (pod) (
+                                rate(container_cpu_usage_seconds_total{
+                                  namespace="listmonk",
+                                  pod=~"listmonk.*",
+                                  container!="POD"
+                                }[5m])
+                              ) > 0.8
+                            for: 5m
+                            labels:
+                              severity: warning
+                              app: listmonk
+                            annotations:
+                              summary: "CPU alta en Listmonk"
+                              description: "El pod {{ $labels.pod }} usa >80% de una CPU"
+                
+                          - alert: ListmonkHighMemory
+                            expr: |
+                              sum by (pod) (
+                                container_memory_working_set_bytes{
+                                  namespace="listmonk",
+                                  pod=~"listmonk.*",
+                                  container!="POD"
+                                }
+                              )
+                              /
+                              sum by (pod) (
+                                kube_pod_container_resource_limits{
+                                  namespace="listmonk",
+                                  pod=~"listmonk.*",
+                                  resource="memory"
+                                }
+                              ) > 0.9
+                            for: 5m
+                            labels:
+                              severity: warning
+                              app: listmonk
+                            annotations:
+                              summary: "Memoria alta en Listmonk"
+                              description: "El pod {{ $labels.pod }} usa >90% del límite de memoria"
+                
+                  listmonk-http:
+                    groups:
+                      - name: listmonk.app.http
+                        rules:
+                          - alert: ListmonkHighLatency
+                            expr: |
+                              histogram_quantile(
+                                0.95,
+                                sum by (le) (
+                                  rate(http_request_duration_seconds_bucket{
+                                    namespace="listmonk",
+                                    pod=~"listmonk.*"
+                                  }[5m])
+                                )
+                              ) > 1
+                            for: 3m
+                            labels:
+                              severity: warning
+                              app: listmonk
+                            annotations:
+                              summary: "Latencia HTTP alta en Listmonk"
+                              description: "p95 de latencia >1s durante 3 minutos"
+                
+                          - alert: ListmonkHttp5xx
+                            expr: |
+                              sum(rate(http_requests_total{
+                                namespace="listmonk",
+                                pod=~"listmonk.*",
+                                status=~"5.."
+                              }[5m]))
+                              /
+                              sum(rate(http_requests_total{
+                                namespace="listmonk",
+                                pod=~"listmonk.*"
+                              }[5m]))
+                              > 0.05
+                            for: 2m
+                            labels:
+                              severity: critical
+                              app: listmonk
+                            annotations:
+                              summary: "Errores 5xx en Listmonk"
+                              description: "Más del 5% de requests devuelven 5xx"
+                
+                  listmonk-postgres:
+                    groups:
+                      - name: listmonk.postgres
+                        rules:
+                          - alert: ListmonkPostgresDown
+                            expr: |
+                              up{namespace="listmonk", pod=~"postgres.*"} == 0
+                            for: 1m
+                            labels:
+                              severity: critical
+                              app: listmonk
+                              component: postgres
+                            annotations:
+                              summary: "PostgreSQL no responde"
+                              description: "El pod de PostgreSQL está caído en listmonk"
+                
+                          - alert: ListmonkPostgresHighMemory
+                            expr: |
+                              container_memory_working_set_bytes{
+                                namespace="listmonk",
+                                pod=~"postgres.*",
+                                container!="POD"
+                              } > 1e9
+                            for: 5m
+                            labels:
+                              severity: warning
+                              component: postgres
+                            annotations:
+                              summary: "Memoria alta en PostgreSQL"
+                              description: "Postgres usa >1GB de memoria"
+            EOT,
+        ]
+      + verify                     = false
+      + version                    = "56.6.0"
+      + wait                       = true
+      + wait_for_jobs              = false
+    }
+
+  # helm_release.loki will be created
+  + resource "helm_release" "loki" {
+      + atomic                     = true
+      + chart                      = "loki"
+      + cleanup_on_fail            = true
+      + create_namespace           = false
+      + dependency_update          = false
+      + disable_crd_hooks          = false
+      + disable_openapi_validation = false
+      + disable_webhooks           = false
+      + force_update               = false
+      + id                         = (known after apply)
+      + lint                       = false
+      + max_history                = 0
+      + metadata                   = (known after apply)
+      + name                       = "loki"
+      + namespace                  = "monitoring"
+      + pass_credentials           = false
+      + recreate_pods              = false
+      + render_subchart_notes      = true
+      + replace                    = false
+      + repository                 = "https://grafana.github.io/helm-charts"
+      + reset_values               = false
+      + reuse_values               = false
+      + set_wo                     = (write-only attribute)
+      + skip_crds                  = false
+      + status                     = "deployed"
+      + take_ownership             = false
+      + timeout                    = 900
+      + upgrade_install            = false
+      + values                     = [
+          + <<-EOT
+                deploymentMode: SingleBinary
+                
+                loki:
+                  auth_enabled: false
+                  storage:
+                    type: filesystem
+                  useTestSchema: true
+                  commonConfig:
+                    replication_factor: 1
+                
+                #Quitar SimpleScalable targets
+                backend:
+                  replicas: 0
+                read:
+                  replicas: 0
+                write:
+                  replicas: 0
+                
+                singleBinary:
+                  replicas: 1
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 256Mi
+                    limits:
+                      cpu: 200m
+                      memory: 512Mi
+                  persistence:
+                    enabled: true
+                    size: 10Gi
+                
+                #Quitamos Test porque sino necesita el pod de Canary
+                test:
+                  enabled: false
+                
+                #Quitar Pods Extras que no necesitamos en Lab
+                lokiCanary:
+                  enabled: false
+                chunksCache:
+                  enabled: false
+                resultsCache:
+                  enabled: false
+                gateway:
+                  enabled: false
+                
+                
+                
+                rbac:
+                  create: true
+                
+                serviceAccount:
+                  create: true
+                  name: loki
+            EOT,
+        ]
+      + verify                     = false
+      + version                    = "6.44.0"
+      + wait                       = true
+      + wait_for_jobs              = false
+    }
+
+  # helm_release.pg_exporter will be created
+  + resource "helm_release" "pg_exporter" {
+      + atomic                     = true
+      + chart                      = "prometheus-postgres-exporter"
+      + cleanup_on_fail            = true
+      + create_namespace           = false
+      + dependency_update          = false
+      + disable_crd_hooks          = false
+      + disable_openapi_validation = false
+      + disable_webhooks           = false
+      + force_update               = false
+      + id                         = (known after apply)
+      + lint                       = false
+      + max_history                = 0
+      + metadata                   = (known after apply)
+      + name                       = "pg-exporter"
+      + namespace                  = "listmonk"
+      + pass_credentials           = false
+      + recreate_pods              = false
+      + render_subchart_notes      = true
+      + replace                    = false
+      + repository                 = "https://prometheus-community.github.io/helm-charts"
+      + reset_values               = false
+      + reuse_values               = false
+      + set_wo                     = (write-only attribute)
+      + skip_crds                  = false
+      + status                     = "deployed"
+      + take_ownership             = false
+      + timeout                    = 600
+      + upgrade_install            = false
+      + values                     = [
+          + <<-EOT
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+                  limits:
+                    cpu: 200m
+                    memory: 128Mi
+                
+                serviceMonitor:
+                  enabled: true
+                  namespace: listmonk
+                  interval: 30s
+                  labels:
+                    release: kps
+                # Credenciales
+                config:
+                  datasource:
+                    host: postgres.listmonk.svc.cluster.local
+                    port: "5432"
+                    sslmode: disable
+                
+                    user: ""
+                    userSecret:
+                      name: postgres-secret
+                      key: POSTGRES_USER
+                
+                    password: ""
+                    passwordSecret:
+                      name: postgres-secret
+                      key: POSTGRES_PASSWORD
+                
+                    database: "listmonk"
+            EOT,
+        ]
+      + verify                     = false
+      + version                    = "7.5.0"
+      + wait                       = true
+      + wait_for_jobs              = false
+    }
+
+  # helm_release.promtail will be created
+  + resource "helm_release" "promtail" {
+      + atomic                     = true
+      + chart                      = "promtail"
+      + cleanup_on_fail            = true
+      + create_namespace           = false
+      + dependency_update          = false
+      + disable_crd_hooks          = false
+      + disable_openapi_validation = false
+      + disable_webhooks           = false
+      + force_update               = false
+      + id                         = (known after apply)
+      + lint                       = false
+      + max_history                = 0
+      + metadata                   = (known after apply)
+      + name                       = "promtail"
+      + namespace                  = "monitoring"
+      + pass_credentials           = false
+      + recreate_pods              = false
+      + render_subchart_notes      = true
+      + replace                    = false
+      + repository                 = "https://grafana.github.io/helm-charts"
+      + reset_values               = false
+      + reuse_values               = false
+      + set_wo                     = (write-only attribute)
+      + skip_crds                  = false
+      + status                     = "deployed"
+      + take_ownership             = false
+      + timeout                    = 900
+      + upgrade_install            = false
+      + values                     = [
+          + <<-EOT
+                rbac:
+                  create: true
+                
+                serviceAccount:
+                  create: true
+                  name: promtail
+                
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 128Mi
+                  limits:
+                    cpu: 100m
+                    memory: 256Mi
+                
+                # Importante en k3s/containerd: lee logs de /var/log/pods, Se monta como RO por seguridad
+                extraVolumes:
+                  - name: varlog
+                    hostPath:
+                      path: /var/log
+                extraVolumeMounts:
+                  - name: varlog
+                    mountPath: /var/log
+                    readOnly: true
+                
+                config:
+                  clients:
+                    - url: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
+            EOT,
+        ]
+      + verify                     = false
+      + version                    = "6.15.0"
+      + wait                       = true
+      + wait_for_jobs              = false
+    }
+
+  # kubernetes_manifest.aws-user_sealedsecret will be created
+  + resource "kubernetes_manifest" "aws-user_sealedsecret" {
+      + manifest = {
+          + apiVersion = "bitnami.com/v1alpha1"
+          + kind       = "SealedSecret"
+          + metadata   = {
+              + name      = "aws-user"
+              + namespace = "listmonk"
+            }
+          + spec       = {
+              + encryptedData = {
+                  + aws-access-key-id     = "AgC1OmiDkYk+Ms03d4+jGEPuMhIvt3LCVdbZp9facELcSlu8xKM0CXOe9L9DUW0AbHuAzGmwYG5rczt5j0eTI0Rjztan7+ZjhCAebl38oWKC8r3Ta+4laFnbzypNGewsef3SvxzjM405yBs9Hh/bhFoUfTA5f/JhJ+S70C2iDPV5mB4/gbzRU05WdoJl2atfm/jcLh7tATokUljyBSQD9G+iOGmA4AULkncpWex6aUD+lMCsDuRC6RRib/AxVqSQ/A0cK8dTytA6f6obp0BpxkBRRwik79yoilh11i145WzG5O4mUGj/wDxURUu8SoAAUDw5+skltzbYVUf0y0OC2klkWcgwfI2tJakvlvt9+D7ymZkXHyJfjHX2ACtt2MRbwGPurUnfXdalNF6nkHgw7vD/A4AXDX1O4/yO4LF5MqZnGwd6hmeoccP425cg4YMevUmfmUjtKliqgmeA8G4sjSH3SgUdq6Hoifxf/GVIRKconmJGl1XXWUwoXgplCXYJ9cCK2qSK6nrnbvuRJaDefYvHFbex1wQ+a00jLvPeQ3P+ca7s4+jHNvZJEuOzKDqgIsrWOAe6F9glsCX73ykY4bCDdBi5xkWy+u5EaxSrzMyXfQO4mTkixzshZRy0WPeIRocOmZNCxrLrkRVKVo/uXHJ26daXbvMQM5ZBcM+AwZJ2EOv+bQL8/bGaSNOObWCuVn6YUPqk"
+                  + aws-secret-access-key = "AgA8guI4JCx7VbXhvsDniVSyXBZCDC8NSEJ8mETII4BuWgx3VgtnUepBq4TSLpChpZIFv7zniP9IGh3+UV8M9Ovfv6Xx3rj1ajwGRbvoTzXcSmVye4i4gs77TMa0M+yY2BoQ5ccYctxzEpOgZHnspmCSVwcJTT+Lrl93Kpk5y54c3aG4DAt+tA70DDiqPBLQrnSt/Yz8bFug654NBUYOibcWeC17aPYxtimRpDhwL5DzO7TEHTwGLIt+CLmX92nNgcisNlAsZUobaeb+sddKsgYU7usWOCuyWn3x2WAH2b+pu/XcJ4dtusvs0eoZmUaKmtTQSjdmh2jWL+8vX02XY0CinK6KdWTW2LVAqDjQr66IAfzN5m9bJWSl6WBcT9m9nSl6OTMn3U0dwafC4uf6uZKjCp/MHkltAJI7d6g0D5JSVaE9lw0UX0Pxck0/7yXox5OdV5LwDzOnftobtQwR7+J1Pd8T62rfkZKABdNDgPVAnrlBi9DgW7p1LK/vtCRLj2tO6wTKSNx0y3UhgRQYiXYtQWYSGsSeGd1CbFQ2bA/wnHW8MYM47qvuJsBpg+geh+Uzaq3oz1OqYDIrwFmlDvCSDw8tF/LOYsvs6UR2UOGmX78vAUOSFS/W6lvqWwTK2kN928tRXq7kqAUF7nveR81Yzm9/ShZGoPqxnT+BD2uaJlV108CZ1Vr/bduuPZR8pRk+iCn5"
+                }
+              + template      = {
+                  + metadata = {
+                      + name      = "aws-user"
+                      + namespace = "listmonk"
+                    }
+                  + type     = "Opaque"
+                }
+            }
+        }
+      + object   = {
+          + apiVersion = "bitnami.com/v1alpha1"
+          + kind       = "SealedSecret"
+          + metadata   = {
+              + annotations                = (known after apply)
+              + creationTimestamp          = (known after apply)
+              + deletionGracePeriodSeconds = (known after apply)
+              + deletionTimestamp          = (known after apply)
+              + finalizers                 = (known after apply)
+              + generateName               = (known after apply)
+              + generation                 = (known after apply)
+              + labels                     = (known after apply)
+              + managedFields              = (known after apply)
+              + name                       = "aws-user"
+              + namespace                  = "listmonk"
+              + ownerReferences            = (known after apply)
+              + resourceVersion            = (known after apply)
+              + selfLink                   = (known after apply)
+              + uid                        = (known after apply)
+            }
+          + spec       = {
+              + data          = (known after apply)
+              + encryptedData = {
+                  + aws-access-key-id     = "AgC1OmiDkYk+Ms03d4+jGEPuMhIvt3LCVdbZp9facELcSlu8xKM0CXOe9L9DUW0AbHuAzGmwYG5rczt5j0eTI0Rjztan7+ZjhCAebl38oWKC8r3Ta+4laFnbzypNGewsef3SvxzjM405yBs9Hh/bhFoUfTA5f/JhJ+S70C2iDPV5mB4/gbzRU05WdoJl2atfm/jcLh7tATokUljyBSQD9G+iOGmA4AULkncpWex6aUD+lMCsDuRC6RRib/AxVqSQ/A0cK8dTytA6f6obp0BpxkBRRwik79yoilh11i145WzG5O4mUGj/wDxURUu8SoAAUDw5+skltzbYVUf0y0OC2klkWcgwfI2tJakvlvt9+D7ymZkXHyJfjHX2ACtt2MRbwGPurUnfXdalNF6nkHgw7vD/A4AXDX1O4/yO4LF5MqZnGwd6hmeoccP425cg4YMevUmfmUjtKliqgmeA8G4sjSH3SgUdq6Hoifxf/GVIRKconmJGl1XXWUwoXgplCXYJ9cCK2qSK6nrnbvuRJaDefYvHFbex1wQ+a00jLvPeQ3P+ca7s4+jHNvZJEuOzKDqgIsrWOAe6F9glsCX73ykY4bCDdBi5xkWy+u5EaxSrzMyXfQO4mTkixzshZRy0WPeIRocOmZNCxrLrkRVKVo/uXHJ26daXbvMQM5ZBcM+AwZJ2EOv+bQL8/bGaSNOObWCuVn6YUPqk"
+                  + aws-secret-access-key = "AgA8guI4JCx7VbXhvsDniVSyXBZCDC8NSEJ8mETII4BuWgx3VgtnUepBq4TSLpChpZIFv7zniP9IGh3+UV8M9Ovfv6Xx3rj1ajwGRbvoTzXcSmVye4i4gs77TMa0M+yY2BoQ5ccYctxzEpOgZHnspmCSVwcJTT+Lrl93Kpk5y54c3aG4DAt+tA70DDiqPBLQrnSt/Yz8bFug654NBUYOibcWeC17aPYxtimRpDhwL5DzO7TEHTwGLIt+CLmX92nNgcisNlAsZUobaeb+sddKsgYU7usWOCuyWn3x2WAH2b+pu/XcJ4dtusvs0eoZmUaKmtTQSjdmh2jWL+8vX02XY0CinK6KdWTW2LVAqDjQr66IAfzN5m9bJWSl6WBcT9m9nSl6OTMn3U0dwafC4uf6uZKjCp/MHkltAJI7d6g0D5JSVaE9lw0UX0Pxck0/7yXox5OdV5LwDzOnftobtQwR7+J1Pd8T62rfkZKABdNDgPVAnrlBi9DgW7p1LK/vtCRLj2tO6wTKSNx0y3UhgRQYiXYtQWYSGsSeGd1CbFQ2bA/wnHW8MYM47qvuJsBpg+geh+Uzaq3oz1OqYDIrwFmlDvCSDw8tF/LOYsvs6UR2UOGmX78vAUOSFS/W6lvqWwTK2kN928tRXq7kqAUF7nveR81Yzm9/ShZGoPqxnT+BD2uaJlV108CZ1Vr/bduuPZR8pRk+iCn5"
+                }
+              + template      = {
+                  + data      = (known after apply)
+                  + immutable = (known after apply)
+                  + metadata  = {
+                      + annotations = (known after apply)
+                      + finalizers  = (known after apply)
+                      + labels      = (known after apply)
+                      + name        = "aws-user"
+                      + namespace   = "listmonk"
+                    }
+                  + type      = "Opaque"
+                }
+            }
+        }
+    }
+
+  # kubernetes_manifest.listmonk_postgres_sealedsecret will be created
+  + resource "kubernetes_manifest" "listmonk_postgres_sealedsecret" {
+      + manifest = {
+          + apiVersion = "bitnami.com/v1alpha1"
+          + kind       = "SealedSecret"
+          + metadata   = {
+              + name      = "postgres-secret"
+              + namespace = "listmonk"
+            }
+          + spec       = {
+              + encryptedData = {
+                  + POSTGRES_DB       = "AgBosFpJ+r4VPFIwoTJl3eujiGBf5bri/TMfpu3DxxYXyHfKK1UCk/kpah4jfD8lNopHuYpC7i0hnRoQ0l0CQh8KylOsBTlDSiN+tI+kOYe/ztbLChWFRQKiHJbmd/p+o6A1aOWJf+LYfEZX9geAJ7ISLLnWPl8+bnZ2ubeOuolwrmfDvFH8zz7ufJxi2geT2lhSYsdf4DAaBjAp5xWyKRzt95dzEiPn2MgRddoEJqTopPyeg8bOhr5BnRbsMTXSq3zL0bLPMO7LuDGJaaqp3eAKGVtX0iDBDXib4mMsJtI4lYjofFQzDnBVnJGXEengwZV05o+qAFxWjZnwffZXsx4epohiMr/r3X36RvKDhIqNMZaPV0B3MBiou40MXqszw1TDD//ISQoB3gkxkUaKwDSCu+Ac4j+vd1nE1FN/nfBPEKrhGjDzBPSdjxYY0br5HstGrE3Pakv29eW8P925R38Pwb5ROM5cR4/hhBp2E/Mji6KVyOBuPT1+OcmWf5Dzr33EGZfW67F/WWhIepc/WoDoc32vF93EGI2JWCN2stpkjh3yTk6/OVV2NLO59Bown8zv/iAHlVSUUf8eSwDel8jXWThhKofSPf+J9lkv4dJIZJbP95oWTQvVVxgs0+I/k+Oemhq8VaH/IgiIABfVd+KJU4DMAIyrLJ2QqeW5wWKjxYI3gO62yuctCbI1uf7sNfeIPjJtklANoA=="
+                  + POSTGRES_PASSWORD = "AgB/Hht0zLgx8g3D750VB7LaUslmelQyORoyP5HhWGuqKFsO8Ga4tNnd0n6xAuEZ8X/jDMImAPM4hrATEHOOSjawgmK1n8EQe/8Crmzdu9Er5E+jqUB0lwsq/gqGko1HYfzMNYHnlEoaDqxlPpOw2soXCorj2vbBhlPCiHfdcJSh+9+VbJw8Bz2ACOGeB9nwKzQBk+PEHvpf7enlZeaLo6CtCxs9E6jDoTcvUk+CBehOF3cAI3qoGsEEIsIvZbWd48KtNrqSgXYDMCi7DFimWHo4uWKhwWDKu6NoDbwwqJxGuhOFoyRccdjiolNsg9K/k9b2Ybj+FjFp06MG8K1nQbMZImU+MKZc4xe/ouqo3qZXi9iEjgEDokWiWzqBAVYxai2YPx0KwCbuNQSO74AHErIW91nNoTYddHIhHvgL9JruQULzYfdDpbnjlq8tesNjg8J1ZNKLh8QmMZD6ltoXgVvlZzTZa0Tj+2JYSQG0PrhZlvQeQ2A+jUb+GswjcDDDUB1xIN8yQvCGUreGM73hkAyoi++F2NeouqoNfwhn1nFAnqd/NoYh8M7f4wynDBFNZNz1OYCDI/ynKu9IR/a153DNqOmGiKWvFT1AOidJJeTAz5AbCunBwjDtUknq3VSecX+zvaSj0sS2YMfZFm21j6I0UsnnG11lVzngcqa3rNmRmm0uHhlzn7mCJaEEagA0Z9omhhc8oI8+Dw=="
+                  + POSTGRES_USER     = "AgBLY/2o7gPXWa3ZDfqah/UKFbG2kCK07L62wSCN/0x8G2TC8j5o4flWXinE6th6cfI5lvrJ+b9dbvmOyEV9avnCmh+AHHeODzlfP2YO39sKFv2IepeRx+8WwqqGDrxFHxpaIgGdZSnjjaiGTIh6xKJuvUVALVm+Yxywp5gNXnKAyqQOCBoTxKBl0+qPPG3aVVChW4jIpRDrJ6b58QzbjESmF2Oi7jdeKhUKj7Cth6QahdIYcWCft7XeaxALd9fZA1ojYuP8Zpkg1pJQEiT2J6RQSJ04RVmMeLMaFjN2NcaHDh1mBAnKLGQsn8Q35lokVnWCyRr1Nxpn2ZMBZ93UWT+CADuKEb6/OiTEaP/o6VstMpX3/R4BhPanEPLxGhjHRz2Z3yniTilVw47v3XtJG1FkT9hVZu1EMTbt6uMLuGWFazvySTpKQW+QhZQSsTtw7a5QATT5lQF217W77VIsUAc0O7rLh8wVkli7mX6iiIG2Kk4Nv2S+ewkxTRYmxrZXcQEmLV9AlcS4d+soXZfEKGxFvIZvbed39KflojIfBfKCqdP/t8SBqxoHPeYx08jd8hgYpTgLTRUPAgrE3k5HqDZkXjozmA2MbvqSaiJ0/5tJ/00CEqzdTQiND9F0dKozZTuGNEpjFo/AgYgEGNlnumLFYw9hIv+6qr9qxbrp/OGoMY5ZTCxPUy2xAmcC4rNszNyNjrZdVOS1bA=="
+                }
+              + template      = {
+                  + metadata = {
+                      + name      = "postgres-secret"
+                      + namespace = "listmonk"
+                    }
+                  + type     = "Opaque"
+                }
+            }
+        }
+      + object   = {
+          + apiVersion = "bitnami.com/v1alpha1"
+          + kind       = "SealedSecret"
+          + metadata   = {
+              + annotations                = (known after apply)
+              + creationTimestamp          = (known after apply)
+              + deletionGracePeriodSeconds = (known after apply)
+              + deletionTimestamp          = (known after apply)
+              + finalizers                 = (known after apply)
+              + generateName               = (known after apply)
+              + generation                 = (known after apply)
+              + labels                     = (known after apply)
+              + managedFields              = (known after apply)
+              + name                       = "postgres-secret"
+              + namespace                  = "listmonk"
+              + ownerReferences            = (known after apply)
+              + resourceVersion            = (known after apply)
+              + selfLink                   = (known after apply)
+              + uid                        = (known after apply)
+            }
+          + spec       = {
+              + data          = (known after apply)
+              + encryptedData = {
+                  + POSTGRES_DB       = "AgBosFpJ+r4VPFIwoTJl3eujiGBf5bri/TMfpu3DxxYXyHfKK1UCk/kpah4jfD8lNopHuYpC7i0hnRoQ0l0CQh8KylOsBTlDSiN+tI+kOYe/ztbLChWFRQKiHJbmd/p+o6A1aOWJf+LYfEZX9geAJ7ISLLnWPl8+bnZ2ubeOuolwrmfDvFH8zz7ufJxi2geT2lhSYsdf4DAaBjAp5xWyKRzt95dzEiPn2MgRddoEJqTopPyeg8bOhr5BnRbsMTXSq3zL0bLPMO7LuDGJaaqp3eAKGVtX0iDBDXib4mMsJtI4lYjofFQzDnBVnJGXEengwZV05o+qAFxWjZnwffZXsx4epohiMr/r3X36RvKDhIqNMZaPV0B3MBiou40MXqszw1TDD//ISQoB3gkxkUaKwDSCu+Ac4j+vd1nE1FN/nfBPEKrhGjDzBPSdjxYY0br5HstGrE3Pakv29eW8P925R38Pwb5ROM5cR4/hhBp2E/Mji6KVyOBuPT1+OcmWf5Dzr33EGZfW67F/WWhIepc/WoDoc32vF93EGI2JWCN2stpkjh3yTk6/OVV2NLO59Bown8zv/iAHlVSUUf8eSwDel8jXWThhKofSPf+J9lkv4dJIZJbP95oWTQvVVxgs0+I/k+Oemhq8VaH/IgiIABfVd+KJU4DMAIyrLJ2QqeW5wWKjxYI3gO62yuctCbI1uf7sNfeIPjJtklANoA=="
+                  + POSTGRES_PASSWORD = "AgB/Hht0zLgx8g3D750VB7LaUslmelQyORoyP5HhWGuqKFsO8Ga4tNnd0n6xAuEZ8X/jDMImAPM4hrATEHOOSjawgmK1n8EQe/8Crmzdu9Er5E+jqUB0lwsq/gqGko1HYfzMNYHnlEoaDqxlPpOw2soXCorj2vbBhlPCiHfdcJSh+9+VbJw8Bz2ACOGeB9nwKzQBk+PEHvpf7enlZeaLo6CtCxs9E6jDoTcvUk+CBehOF3cAI3qoGsEEIsIvZbWd48KtNrqSgXYDMCi7DFimWHo4uWKhwWDKu6NoDbwwqJxGuhOFoyRccdjiolNsg9K/k9b2Ybj+FjFp06MG8K1nQbMZImU+MKZc4xe/ouqo3qZXi9iEjgEDokWiWzqBAVYxai2YPx0KwCbuNQSO74AHErIW91nNoTYddHIhHvgL9JruQULzYfdDpbnjlq8tesNjg8J1ZNKLh8QmMZD6ltoXgVvlZzTZa0Tj+2JYSQG0PrhZlvQeQ2A+jUb+GswjcDDDUB1xIN8yQvCGUreGM73hkAyoi++F2NeouqoNfwhn1nFAnqd/NoYh8M7f4wynDBFNZNz1OYCDI/ynKu9IR/a153DNqOmGiKWvFT1AOidJJeTAz5AbCunBwjDtUknq3VSecX+zvaSj0sS2YMfZFm21j6I0UsnnG11lVzngcqa3rNmRmm0uHhlzn7mCJaEEagA0Z9omhhc8oI8+Dw=="
+                  + POSTGRES_USER     = "AgBLY/2o7gPXWa3ZDfqah/UKFbG2kCK07L62wSCN/0x8G2TC8j5o4flWXinE6th6cfI5lvrJ+b9dbvmOyEV9avnCmh+AHHeODzlfP2YO39sKFv2IepeRx+8WwqqGDrxFHxpaIgGdZSnjjaiGTIh6xKJuvUVALVm+Yxywp5gNXnKAyqQOCBoTxKBl0+qPPG3aVVChW4jIpRDrJ6b58QzbjESmF2Oi7jdeKhUKj7Cth6QahdIYcWCft7XeaxALd9fZA1ojYuP8Zpkg1pJQEiT2J6RQSJ04RVmMeLMaFjN2NcaHDh1mBAnKLGQsn8Q35lokVnWCyRr1Nxpn2ZMBZ93UWT+CADuKEb6/OiTEaP/o6VstMpX3/R4BhPanEPLxGhjHRz2Z3yniTilVw47v3XtJG1FkT9hVZu1EMTbt6uMLuGWFazvySTpKQW+QhZQSsTtw7a5QATT5lQF217W77VIsUAc0O7rLh8wVkli7mX6iiIG2Kk4Nv2S+ewkxTRYmxrZXcQEmLV9AlcS4d+soXZfEKGxFvIZvbed39KflojIfBfKCqdP/t8SBqxoHPeYx08jd8hgYpTgLTRUPAgrE3k5HqDZkXjozmA2MbvqSaiJ0/5tJ/00CEqzdTQiND9F0dKozZTuGNEpjFo/AgYgEGNlnumLFYw9hIv+6qr9qxbrp/OGoMY5ZTCxPUy2xAmcC4rNszNyNjrZdVOS1bA=="
+                }
+              + template      = {
+                  + data      = (known after apply)
+                  + immutable = (known after apply)
+                  + metadata  = {
+                      + annotations = (known after apply)
+                      + finalizers  = (known after apply)
+                      + labels      = (known after apply)
+                      + name        = "postgres-secret"
+                      + namespace   = "listmonk"
+                    }
+                  + type      = "Opaque"
+                }
+            }
+        }
+    }
+
+  # kubernetes_manifest.monitoring_sealedsecret will be created
+  + resource "kubernetes_manifest" "monitoring_sealedsecret" {
+      + manifest = {
+          + apiVersion = "bitnami.com/v1alpha1"
+          + kind       = "SealedSecret"
+          + metadata   = {
+              + name      = "grafana-admin"
+              + namespace = "monitoring"
+            }
+          + spec       = {
+              + encryptedData = {
+                  + admin-password = "AgCbexkybE6bz27K1dQEPG3VQktW9XBFXfoTQV+sG/P17cmnBCXWeyD5gIvHWleJAz4oB+SdNHhl+/+TChRcG5aIbSC0Lnuu3An+jnbO9aDPcyiQuq3kJvLKWm1sRkWVpIvDYlTIjzAzFvmHKsXDiyo1sEdPIdpmYb6U57UJmvSdhaTyszE2B6PYdzUC8SD23sdAbWU/yJ6ULZaFapqtcd3lglRBYgo5lwKn6c8oQKiTgamB8sc+i8aEm9ktMoEg0lv+uaiSfo5Pk1KOZ0pS0c0kcvZEWuKbJo6YUrkPoNgMzTP0T3i258WwxxrCAcbg/astesLi0bwxssdn6Ls0+ggQ8QlmMkCSFcC2fV4wAFufsqMekXWa9JYZdhPvPN3q4WPLrTUV0sv3Fkej3+lOTTeHk2J2sb+emP4smYO8nOB3pTZNQAS3TVSHSHGMGW7sdgc5QYz+XSD3/8BRRbad48fjV8zO7Aa7Qe8hFsVwcTpaUE0f0Z4ELCnK0AfDBfyvOloq+WHWdNQBtAhHOUjBnlRwyXdwXl88cl13gmIeuTcUznm5KHzFrG9yHYxfwGsrBFLMpPp10JlNcsfcvKPje6Klsk2LpmlLkQsGqpHVZLBPkMTbEJy5xmLQFLYOC5aOPxUFQwZl/84STNUKyNa0TNbpGIcC0/xP0jFy69z+MOMZhNBCJggb7VhquJQT2C1T2eEI96MFaXgUeg=="
+                  + admin-user     = "AgAJB+4aqo9QIfwvke/zeHefyJV8XYyvemTX8CBQzfI7RybNqgzi0SQrbnveDXv+JcGjTlID++spe0DuOY2BWkXQ4cDV0Kp4victAuCXqcl+nIrUr3JyMto51aTFnI1X9VZT8iA0hCexiTQhX2GEWjty3BHl+cA0dyNaMtvCjy52T4u52+RNc2uKlQfMWUAXs6lnDfKao+Yyk6aX/eoCt/KPPMgeV7i5wD6xMx6fOq3i2rQAl9a8L9JitAsO+KyIeyhE+tiPUgg7aeSMDYmaxSn0kIVwgtJVaKsZfNkd039/g3fen6BpnZWB4Nv5Nr6XO/f+yaMINz+UbvlDvOPRK4rD2uwrPpnjPym7q/wotvGLbJq4Z5T9cGlK0P4zC0NtGmT8kCjFTCRJnIFjUEddum4X7fm1nc3s0VM7d1d38c7IBa4t4Tn+iqsCIDKOyI4WX05HbheHnnHiAHvTe7mn6Bqf7pJBHqOXjdrakWKeiG+rG/HVHziiSXkD+EV9v4nUzNuhjt1anOZuoS+5aU8xhGqPMOYNq336FFFgLNfikL1k/GBTZy/e3JRqNzDc0/u3Vvg3ozGfJTVkNEKlIFKOoTkNHMBS8dRnPnHGsKgX7Eognzz8WBVzjWOI9uDiX8AXoq4cfIhpZxxs2n92NxUjAuz6PROqCMVuZ2xoBzF9qWi0U68Tt60bcoIn5BpDgT05D8Gt5pD67Q=="
+                }
+              + template      = {
+                  + metadata = {
+                      + name      = "grafana-admin"
+                      + namespace = "monitoring"
+                    }
+                }
+            }
+        }
+      + object   = {
+          + apiVersion = "bitnami.com/v1alpha1"
+          + kind       = "SealedSecret"
+          + metadata   = {
+              + annotations                = (known after apply)
+              + creationTimestamp          = (known after apply)
+              + deletionGracePeriodSeconds = (known after apply)
+              + deletionTimestamp          = (known after apply)
+              + finalizers                 = (known after apply)
+              + generateName               = (known after apply)
+              + generation                 = (known after apply)
+              + labels                     = (known after apply)
+              + managedFields              = (known after apply)
+              + name                       = "grafana-admin"
+              + namespace                  = "monitoring"
+              + ownerReferences            = (known after apply)
+              + resourceVersion            = (known after apply)
+              + selfLink                   = (known after apply)
+              + uid                        = (known after apply)
+            }
+          + spec       = {
+              + data          = (known after apply)
+              + encryptedData = {
+                  + admin-password = "AgCbexkybE6bz27K1dQEPG3VQktW9XBFXfoTQV+sG/P17cmnBCXWeyD5gIvHWleJAz4oB+SdNHhl+/+TChRcG5aIbSC0Lnuu3An+jnbO9aDPcyiQuq3kJvLKWm1sRkWVpIvDYlTIjzAzFvmHKsXDiyo1sEdPIdpmYb6U57UJmvSdhaTyszE2B6PYdzUC8SD23sdAbWU/yJ6ULZaFapqtcd3lglRBYgo5lwKn6c8oQKiTgamB8sc+i8aEm9ktMoEg0lv+uaiSfo5Pk1KOZ0pS0c0kcvZEWuKbJo6YUrkPoNgMzTP0T3i258WwxxrCAcbg/astesLi0bwxssdn6Ls0+ggQ8QlmMkCSFcC2fV4wAFufsqMekXWa9JYZdhPvPN3q4WPLrTUV0sv3Fkej3+lOTTeHk2J2sb+emP4smYO8nOB3pTZNQAS3TVSHSHGMGW7sdgc5QYz+XSD3/8BRRbad48fjV8zO7Aa7Qe8hFsVwcTpaUE0f0Z4ELCnK0AfDBfyvOloq+WHWdNQBtAhHOUjBnlRwyXdwXl88cl13gmIeuTcUznm5KHzFrG9yHYxfwGsrBFLMpPp10JlNcsfcvKPje6Klsk2LpmlLkQsGqpHVZLBPkMTbEJy5xmLQFLYOC5aOPxUFQwZl/84STNUKyNa0TNbpGIcC0/xP0jFy69z+MOMZhNBCJggb7VhquJQT2C1T2eEI96MFaXgUeg=="
+                  + admin-user     = "AgAJB+4aqo9QIfwvke/zeHefyJV8XYyvemTX8CBQzfI7RybNqgzi0SQrbnveDXv+JcGjTlID++spe0DuOY2BWkXQ4cDV0Kp4victAuCXqcl+nIrUr3JyMto51aTFnI1X9VZT8iA0hCexiTQhX2GEWjty3BHl+cA0dyNaMtvCjy52T4u52+RNc2uKlQfMWUAXs6lnDfKao+Yyk6aX/eoCt/KPPMgeV7i5wD6xMx6fOq3i2rQAl9a8L9JitAsO+KyIeyhE+tiPUgg7aeSMDYmaxSn0kIVwgtJVaKsZfNkd039/g3fen6BpnZWB4Nv5Nr6XO/f+yaMINz+UbvlDvOPRK4rD2uwrPpnjPym7q/wotvGLbJq4Z5T9cGlK0P4zC0NtGmT8kCjFTCRJnIFjUEddum4X7fm1nc3s0VM7d1d38c7IBa4t4Tn+iqsCIDKOyI4WX05HbheHnnHiAHvTe7mn6Bqf7pJBHqOXjdrakWKeiG+rG/HVHziiSXkD+EV9v4nUzNuhjt1anOZuoS+5aU8xhGqPMOYNq336FFFgLNfikL1k/GBTZy/e3JRqNzDc0/u3Vvg3ozGfJTVkNEKlIFKOoTkNHMBS8dRnPnHGsKgX7Eognzz8WBVzjWOI9uDiX8AXoq4cfIhpZxxs2n92NxUjAuz6PROqCMVuZ2xoBzF9qWi0U68Tt60bcoIn5BpDgT05D8Gt5pD67Q=="
+                }
+              + template      = {
+                  + data      = (known after apply)
+                  + immutable = (known after apply)
+                  + metadata  = {
+                      + annotations = (known after apply)
+                      + finalizers  = (known after apply)
+                      + labels      = (known after apply)
+                      + name        = "grafana-admin"
+                      + namespace   = "monitoring"
+                    }
+                  + type      = (known after apply)
+                }
+            }
+        }
+    }
+
+  # kubernetes_namespace_v1.argo-rollouts will be created
+  + resource "kubernetes_namespace_v1" "argo-rollouts" {
+      + id                               = (known after apply)
+      + wait_for_default_service_account = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "argo-rollouts"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_namespace_v1.argocd will be created
+  + resource "kubernetes_namespace_v1" "argocd" {
+      + id                               = (known after apply)
+      + wait_for_default_service_account = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "argocd"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_namespace_v1.listmonk will be created
+  + resource "kubernetes_namespace_v1" "listmonk" {
+      + id                               = (known after apply)
+      + wait_for_default_service_account = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_namespace_v1.mail will be created
+  + resource "kubernetes_namespace_v1" "mail" {
+      + id                               = (known after apply)
+      + wait_for_default_service_account = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "mail"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_namespace_v1.monitoring will be created
+  + resource "kubernetes_namespace_v1" "monitoring" {
+      + id                               = (known after apply)
+      + wait_for_default_service_account = false
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "monitoring"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_network_policy_v1.allow_backup_egress_postgres_localstack will be created
+  + resource "kubernetes_network_policy_v1" "allow_backup_egress_postgres_localstack" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "allow-backup-egress-postgres-dns-localstack"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Egress",
+            ]
+
+          + egress {
+              + ports {
+                  + port     = "5432"
+                  + protocol = "TCP"
+                }
+              + to {
+                  + pod_selector {
+                      + match_labels = {
+                          + "app" = "postgres"
+                        }
+                    }
+                }
+            }
+          + egress {
+              + ports {
+                  + port     = "4566"
+                  + protocol = "TCP"
+                }
+              + to {
+                  + namespace_selector {
+                      + match_labels = {
+                          + "kubernetes.io/metadata.name" = "localstack"
+                        }
+                    }
+                }
+            }
+
+          + pod_selector {
+              + match_labels = {
+                  + "app" = "postgres-backup"
+                }
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.allow_postgres_ingress_from_backup will be created
+  + resource "kubernetes_network_policy_v1" "allow_postgres_ingress_from_backup" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "allow-postgres-ingress-from-backup"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Ingress",
+            ]
+
+          + ingress {
+              + from {
+                  + pod_selector {
+                      + match_labels = {
+                          + "app" = "postgres-backup"
+                        }
+                    }
+                }
+              + ports {
+                  + port     = "5432"
+                  + protocol = "TCP"
+                }
+            }
+
+          + pod_selector {
+              + match_labels = {
+                  + "app" = "postgres"
+                }
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.listmonk_allow_dns_egress will be created
+  + resource "kubernetes_network_policy_v1" "listmonk_allow_dns_egress" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "allow-dns-egress"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Egress",
+            ]
+
+          + egress {
+              + ports {
+                  + port     = "53"
+                  + protocol = "UDP"
+                }
+              + ports {
+                  + port     = "53"
+                  + protocol = "TCP"
+                }
+              + to {
+                  + namespace_selector {
+                      + match_labels = {
+                          + "kubernetes.io/metadata.name" = "kube-system"
+                        }
+                    }
+                }
+            }
+
+          + pod_selector {
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.listmonk_allow_egress_analysis_to_listmonk will be created
+  + resource "kubernetes_network_policy_v1" "listmonk_allow_egress_analysis_to_listmonk" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "allow-egress-analysis-to-listmonk-and-dns"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Egress",
+            ]
+
+          + egress {
+              + ports {
+                  + port     = "9000"
+                  + protocol = "TCP"
+                }
+              + to {
+                  + pod_selector {
+                      + match_labels = {
+                          + "app" = "listmonk"
+                        }
+                    }
+                }
+            }
+
+          + pod_selector {
+              + match_labels = {
+                  + "role" = "analysis"
+                }
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.listmonk_allow_egress_from_listmonk will be created
+  + resource "kubernetes_network_policy_v1" "listmonk_allow_egress_from_listmonk" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "allow-egress-from-listmonk"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Egress",
+            ]
+
+          + egress {
+              + ports {
+                  + port     = "5432"
+                  + protocol = "TCP"
+                }
+              + to {
+                  + pod_selector {
+                      + match_labels = {
+                          + "app" = "postgres"
+                        }
+                    }
+                }
+            }
+          + egress {
+              + ports {
+                  + port     = "1025"
+                  + protocol = "TCP"
+                }
+              + to {
+                  + namespace_selector {
+                      + match_labels = {
+                          + "kubernetes.io/metadata.name" = "mail"
+                        }
+                    }
+                  + pod_selector {
+                      + match_labels = {
+                          + "app" = "mailpit"
+                        }
+                    }
+                }
+            }
+
+          + pod_selector {
+              + match_labels = {
+                  + "app" = "listmonk"
+                }
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.listmonk_allow_ingress_nginx_to_listmonk will be created
+  + resource "kubernetes_network_policy_v1" "listmonk_allow_ingress_nginx_to_listmonk" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "allow-ingress-nginx-to-listmonk"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Ingress",
+            ]
+
+          + ingress {
+              + from {
+                  + namespace_selector {
+                      + match_labels = {
+                          + "kubernetes.io/metadata.name" = "ingress-nginx"
+                        }
+                    }
+                }
+              + ports {
+                  + port     = "9000"
+                  + protocol = "TCP"
+                }
+            }
+
+          + pod_selector {
+              + match_labels = {
+                  + "app" = "listmonk"
+                }
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.listmonk_allow_ingress_to_listmonk_from_analysis will be created
+  + resource "kubernetes_network_policy_v1" "listmonk_allow_ingress_to_listmonk_from_analysis" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "allow-ingress-to-listmonk-from-analysis"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Ingress",
+            ]
+
+          + ingress {
+              + from {
+                  + pod_selector {
+                      + match_labels = {
+                          + "role" = "analysis"
+                        }
+                    }
+                }
+              + ports {
+                  + port     = "9000"
+                  + protocol = "TCP"
+                }
+            }
+
+          + pod_selector {
+              + match_labels = {
+                  + "app" = "listmonk"
+                }
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.listmonk_allow_listmonk_to_postgres will be created
+  + resource "kubernetes_network_policy_v1" "listmonk_allow_listmonk_to_postgres" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "allow-listmonk-to-postgres"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Ingress",
+            ]
+
+          + ingress {
+              + from {
+                  + pod_selector {
+                      + match_labels = {
+                          + "app" = "listmonk"
+                        }
+                    }
+                }
+              + ports {
+                  + port     = "5432"
+                  + protocol = "TCP"
+                }
+            }
+
+          + pod_selector {
+              + match_labels = {
+                  + "app" = "postgres"
+                }
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.listmonk_allow_monitoring_to_pg_exporter will be created
+  + resource "kubernetes_network_policy_v1" "listmonk_allow_monitoring_to_pg_exporter" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "allow-monitoring-to-pg-exporter"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Ingress",
+            ]
+
+          + ingress {
+              + from {
+                  + namespace_selector {
+                      + match_labels = {
+                          + "kubernetes.io/metadata.name" = "monitoring"
+                        }
+                    }
+                }
+              + ports {
+                  + port     = "9187"
+                  + protocol = "TCP"
+                }
+            }
+
+          + pod_selector {
+              + match_labels = {
+                  + "app.kubernetes.io/name" = "prometheus-postgres-exporter"
+                }
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.listmonk_allow_pg_exporter_into_postgres will be created
+  + resource "kubernetes_network_policy_v1" "listmonk_allow_pg_exporter_into_postgres" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "allow-pg-exporter-into-postgres"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Ingress",
+            ]
+
+          + ingress {
+              + from {
+                  + pod_selector {
+                      + match_labels = {
+                          + "app.kubernetes.io/name" = "prometheus-postgres-exporter"
+                        }
+                    }
+                }
+              + ports {
+                  + port     = "5432"
+                  + protocol = "TCP"
+                }
+            }
+
+          + pod_selector {
+              + match_labels = {
+                  + "app" = "postgres"
+                }
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.listmonk_allow_pg_exporter_to_postgres will be created
+  + resource "kubernetes_network_policy_v1" "listmonk_allow_pg_exporter_to_postgres" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "allow-pg-exporter-to-postgres"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Egress",
+            ]
+
+          + egress {
+              + ports {
+                  + port     = "5432"
+                  + protocol = "TCP"
+                }
+              + to {
+                  + pod_selector {
+                      + match_labels = {
+                          + "app" = "postgres"
+                        }
+                    }
+                }
+            }
+
+          + pod_selector {
+              + match_labels = {
+                  + "app.kubernetes.io/name" = "prometheus-postgres-exporter"
+                }
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.listmonk_default_deny will be created
+  + resource "kubernetes_network_policy_v1" "listmonk_default_deny" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "default-deny"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Ingress",
+              + "Egress",
+            ]
+
+          + pod_selector {
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.mail_allow_smtp_from_listmonk will be created
+  + resource "kubernetes_network_policy_v1" "mail_allow_smtp_from_listmonk" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "allow-smtp-from-listmonk"
+          + namespace        = "mail"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Ingress",
+            ]
+
+          + ingress {
+              + from {
+                  + namespace_selector {
+                      + match_labels = {
+                          + "kubernetes.io/metadata.name" = "listmonk"
+                        }
+                    }
+                }
+              + ports {
+                  + port     = "1025"
+                  + protocol = "TCP"
+                }
+            }
+
+          + pod_selector {
+              + match_labels = {
+                  + "app" = "mailpit"
+                }
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.mail_allow_ui_from_ingress_nginx will be created
+  + resource "kubernetes_network_policy_v1" "mail_allow_ui_from_ingress_nginx" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "allow-ui-from-ingress-nginx"
+          + namespace        = "mail"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Ingress",
+            ]
+
+          + ingress {
+              + from {
+                  + namespace_selector {
+                      + match_labels = {
+                          + "kubernetes.io/metadata.name" = "ingress-nginx"
+                        }
+                    }
+                }
+              + ports {
+                  + port     = "8025"
+                  + protocol = "TCP"
+                }
+            }
+
+          + pod_selector {
+              + match_labels = {
+                  + "app" = "mailpit"
+                }
+            }
+        }
+    }
+
+  # kubernetes_network_policy_v1.mail_default_deny will be created
+  + resource "kubernetes_network_policy_v1" "mail_default_deny" {
+      + id = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + name             = "default-deny"
+          + namespace        = "mail"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+
+      + spec {
+          + policy_types = [
+              + "Ingress",
+              + "Egress",
+            ]
+
+          + pod_selector {
+            }
+        }
+    }
+
+  # kubernetes_service_account_v1.listmonk will be created
+  + resource "kubernetes_service_account_v1" "listmonk" {
+      + automount_service_account_token = true
+      + default_secret_name             = (known after apply)
+      + id                              = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + labels           = {
+              + "app" = "listmonk"
+            }
+          + name             = "listmonk"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_service_account_v1.mailpit will be created
+  + resource "kubernetes_service_account_v1" "mailpit" {
+      + automount_service_account_token = true
+      + default_secret_name             = (known after apply)
+      + id                              = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + labels           = {
+              + "app" = "mailpit"
+            }
+          + name             = "mailpit"
+          + namespace        = "mail"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+  # kubernetes_service_account_v1.postgres will be created
+  + resource "kubernetes_service_account_v1" "postgres" {
+      + automount_service_account_token = true
+      + default_secret_name             = (known after apply)
+      + id                              = (known after apply)
+
+      + metadata {
+          + generation       = (known after apply)
+          + labels           = {
+              + "app" = "postgres"
+            }
+          + name             = "postgres"
+          + namespace        = "listmonk"
+          + resource_version = (known after apply)
+          + uid              = (known after apply)
+        }
+    }
+
+Plan: 30 to add, 0 to change, 0 to destroy.
+kubernetes_namespace_v1.argocd: Creating...
+kubernetes_namespace_v1.mail: Creating...
+kubernetes_namespace_v1.monitoring: Creating...
+kubernetes_namespace_v1.listmonk: Creating...
+kubernetes_namespace_v1.argo-rollouts: Creating...
+kubernetes_namespace_v1.monitoring: Creation complete after 0s [id=monitoring]
+kubernetes_namespace_v1.listmonk: Creation complete after 0s [id=listmonk]
+kubernetes_namespace_v1.mail: Creation complete after 0s [id=mail]
+kubernetes_namespace_v1.argocd: Creation complete after 0s [id=argocd]
+kubernetes_service_account_v1.mailpit: Creating...
+kubernetes_service_account_v1.postgres: Creating...
+kubernetes_service_account_v1.listmonk: Creating...
+kubernetes_service_account_v1.postgres: Creation complete after 0s [id=listmonk/postgres]
+kubernetes_service_account_v1.mailpit: Creation complete after 0s [id=mail/mailpit]
+kubernetes_namespace_v1.argo-rollouts: Creation complete after 0s [id=argo-rollouts]
+kubernetes_service_account_v1.listmonk: Creation complete after 0s [id=listmonk/listmonk]
+kubernetes_network_policy_v1.listmonk_default_deny: Creating...
+kubernetes_network_policy_v1.listmonk_default_deny: Creation complete after 1s [id=listmonk/default-deny]
+kubernetes_network_policy_v1.listmonk_allow_egress_analysis_to_listmonk: Creating...
+kubernetes_network_policy_v1.listmonk_allow_ingress_nginx_to_listmonk: Creating...
+kubernetes_network_policy_v1.allow_postgres_ingress_from_backup: Creating...
+kubernetes_network_policy_v1.listmonk_allow_egress_analysis_to_listmonk: Creation complete after 0s [id=listmonk/allow-egress-analysis-to-listmonk-and-dns]
+kubernetes_network_policy_v1.allow_postgres_ingress_from_backup: Creation complete after 0s [id=listmonk/allow-postgres-ingress-from-backup]
+kubernetes_network_policy_v1.listmonk_allow_ingress_nginx_to_listmonk: Creation complete after 0s [id=listmonk/allow-ingress-nginx-to-listmonk]
+kubernetes_network_policy_v1.listmonk_allow_egress_from_listmonk: Creating...
+kubernetes_network_policy_v1.mail_default_deny: Creating...
+kubernetes_network_policy_v1.listmonk_allow_monitoring_to_pg_exporter: Creating...
+kubernetes_network_policy_v1.listmonk_allow_egress_from_listmonk: Creation complete after 0s [id=listmonk/allow-egress-from-listmonk]
+kubernetes_network_policy_v1.mail_default_deny: Creation complete after 0s [id=mail/default-deny]
+kubernetes_network_policy_v1.listmonk_allow_monitoring_to_pg_exporter: Creation complete after 0s [id=listmonk/allow-monitoring-to-pg-exporter]
+kubernetes_network_policy_v1.listmonk_allow_pg_exporter_to_postgres: Creating...
+kubernetes_network_policy_v1.listmonk_allow_listmonk_to_postgres: Creating...
+kubernetes_network_policy_v1.listmonk_allow_dns_egress: Creating...
+kubernetes_network_policy_v1.listmonk_allow_pg_exporter_to_postgres: Creation complete after 0s [id=listmonk/allow-pg-exporter-to-postgres]
+kubernetes_network_policy_v1.listmonk_allow_listmonk_to_postgres: Creation complete after 0s [id=listmonk/allow-listmonk-to-postgres]
+kubernetes_network_policy_v1.listmonk_allow_dns_egress: Creation complete after 0s [id=listmonk/allow-dns-egress]
+kubernetes_network_policy_v1.allow_backup_egress_postgres_localstack: Creating...
+kubernetes_network_policy_v1.listmonk_allow_ingress_to_listmonk_from_analysis: Creating...
+kubernetes_network_policy_v1.listmonk_allow_pg_exporter_into_postgres: Creating...
+kubernetes_network_policy_v1.allow_backup_egress_postgres_localstack: Creation complete after 0s [id=listmonk/allow-backup-egress-postgres-dns-localstack]
+kubernetes_network_policy_v1.listmonk_allow_ingress_to_listmonk_from_analysis: Creation complete after 0s [id=listmonk/allow-ingress-to-listmonk-from-analysis]
+kubernetes_network_policy_v1.listmonk_allow_pg_exporter_into_postgres: Creation complete after 0s [id=listmonk/allow-pg-exporter-into-postgres]
+kubernetes_network_policy_v1.mail_allow_smtp_from_listmonk: Creating...
+kubernetes_network_policy_v1.mail_allow_ui_from_ingress_nginx: Creating...
+kubernetes_network_policy_v1.mail_allow_smtp_from_listmonk: Creation complete after 0s [id=mail/allow-smtp-from-listmonk]
+kubernetes_network_policy_v1.mail_allow_ui_from_ingress_nginx: Creation complete after 0s [id=mail/allow-ui-from-ingress-nginx]
+kubernetes_manifest.monitoring_sealedsecret: Creating...
+kubernetes_manifest.aws-user_sealedsecret: Creating...
+kubernetes_manifest.listmonk_postgres_sealedsecret: Creating...
+kubernetes_manifest.aws-user_sealedsecret: Creation complete after 0s
+kubernetes_manifest.monitoring_sealedsecret: Creation complete after 0s
+kubernetes_manifest.listmonk_postgres_sealedsecret: Creation complete after 0s
+helm_release.pg_exporter: Creating...
+helm_release.kps: Creating...
+helm_release.loki: Creating...
+helm_release.promtail: Creating...
+helm_release.pg_exporter: Still creating... [00m10s elapsed]
+helm_release.kps: Still creating... [00m10s elapsed]
+helm_release.loki: Still creating... [00m10s elapsed]
+helm_release.promtail: Still creating... [00m10s elapsed]
+helm_release.promtail: Creation complete after 10s [id=promtail]
+helm_release.pg_exporter: Creation complete after 14s [id=pg-exporter]
+helm_release.kps: Still creating... [00m20s elapsed]
+helm_release.loki: Still creating... [00m20s elapsed]
+helm_release.kps: Still creating... [00m30s elapsed]
+helm_release.loki: Still creating... [00m30s elapsed]
+helm_release.kps: Still creating... [00m40s elapsed]
+helm_release.loki: Still creating... [00m40s elapsed]
+helm_release.kps: Still creating... [00m50s elapsed]
+helm_release.loki: Still creating... [00m50s elapsed]
+helm_release.kps: Still creating... [01m00s elapsed]
+helm_release.loki: Still creating... [01m00s elapsed]
+helm_release.kps: Creation complete after 1m1s [id=kps]
+helm_release.loki: Still creating... [01m10s elapsed]
+helm_release.loki: Creation complete after 1m13s [id=loki]
+
+Apply complete! Resources: 30 added, 0 changed, 0 destroyed.
+[0;32m[OK][0m Terraform aplicado correctamente
+========== 3) ArgoCD + Rollouts ==========
+[0;33m[WARNING][0m Namespace 'argocd' ya existe (skip)
+[0;33m[WARNING][0m Namespace 'argo-rollouts' ya existe (skip)
+[0;34m[INSTALLING][0m Helm release 'argocd' en ns 'argocd'
+Release "argocd" does not exist. Installing it now.
+NAME: argocd
+LAST DEPLOYED: Sun Feb 22 09:12:33 2026
+NAMESPACE: argocd
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+In order to access the server UI you have the following options:
+
+1. kubectl port-forward service/argocd-server -n argocd 8080:443
+
+    and then open the browser on http://localhost:8080 and accept the certificate
+
+2. enable ingress in the values file `server.ingress.enabled` and either
+      - Add the annotation for ssl passthrough: https://argo-cd.readthedocs.io/en/stable/operator-manual/ingress/#option-1-ssl-passthrough
+      - Set the `configs.params."server.insecure"` in the values file and terminate SSL at your ingress: https://argo-cd.readthedocs.io/en/stable/operator-manual/ingress/#option-2-multiple-ingress-objects-and-hosts
+
+
+After reaching the UI the first time you can login with username: admin and the random password generated during the installation. You can find the password by running:
+
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+
+(You should delete the initial secret afterwards as suggested by the Getting Started Guide: https://argo-cd.readthedocs.io/en/stable/getting_started/#4-login-using-the-cli)
+[0;34m[INFO][0m Esperando pods Ready en 'argocd' ....
+[0;32m[OK][0m Pods en 'argocd' listos
+[0;32m[OK][0m Helm release 'argocd' instalado y verificado
+[0;34m[INSTALLING][0m Helm release 'argo-rollouts' en ns 'argo-rollouts'
+Release "argo-rollouts" does not exist. Installing it now.
+NAME: argo-rollouts
+LAST DEPLOYED: Sun Feb 22 09:18:13 2026
+NAMESPACE: argo-rollouts
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+[0;32m[OK][0m Helm release 'argo-rollouts' instalado y verificado
+[0;34m[APPLYING][0m Aplicando /home/eric/Proyecto/listmonk_Kubernetes/infra/argocd/argocd-project-listmonk.yaml
+appproject.argoproj.io/listmonk created
+[0;32m[OK][0m Aplicado: /home/eric/Proyecto/listmonk_Kubernetes/infra/argocd/argocd-project-listmonk.yaml
+[0;34m[APPLYING][0m Aplicando /home/eric/Proyecto/listmonk_Kubernetes/infra/argocd/argocd-app-listmonk.yaml
+application.argoproj.io/listmonk created
+[0;32m[OK][0m Aplicado: /home/eric/Proyecto/listmonk_Kubernetes/infra/argocd/argocd-app-listmonk.yaml
+
+========== 4) Mail + Webhook ==========
+[0;34m[APPLYING][0m Aplicando kustomize: /home/eric/Proyecto/listmonk_Kubernetes/infra/mail
+service/mailpit created
+deployment.apps/mailpit created
+ingress.networking.k8s.io/mailpit created
+[0;32m[OK][0m Kustomize verificado: /home/eric/Proyecto/listmonk_Kubernetes/infra/mail
+[0;34m[APPLYING][0m Aplicando /home/eric/Proyecto/listmonk_Kubernetes/infra/monitoring/webhook-receiver-python.yaml
+serviceaccount/webhook-receiver created
+configmap/webhook-receiver-script created
+deployment.apps/webhook-receiver created
+service/webhook-receiver created
+[0;32m[OK][0m Aplicación verificada: /home/eric/Proyecto/listmonk_Kubernetes/infra/monitoring/webhook-receiver-python.yaml
+
+========== 5) Creación S3 Bucket para el Backup ==========
+[0;34m[APPLYING][0m Creando bucket 'listmonk-postgres-backup'
+[0;32m[OK][0m Bucket 'listmonk-postgres-backup' creado
+
+============================================================
+[0;32mBOOTSTRAP COMPLETADO[0m
+============================================================
+
+[0;34mNamespaces:[0m
+NAME              STATUS   AGE
+argo-rollouts     Active   7m41s
+argocd            Active   7m41s
+cert-manager      Active   97d
+default           Active   97d
+ingress-nginx     Active   97d
+kube-node-lease   Active   97d
+kube-public       Active   97d
+kube-system       Active   97d
+listmonk          Active   7m41s
+localstack        Active   8m22s
+mail              Active   7m41s
+monitoring        Active   7m41s
+
+[0;34mHelm releases:[0m
+NAME         	NAMESPACE    	REVISION	UPDATED                                	STATUS  	CHART                             	APP VERSION
+argo-rollouts	argo-rollouts	1       	2026-02-22 09:18:13.482396181 +0000 UTC	deployed	argo-rollouts-2.40.5              	v1.8.3     
+argocd       	argocd       	1       	2026-02-22 09:12:33.374239301 +0000 UTC	deployed	argo-cd-9.4.2                     	v3.3.0     
+kps          	monitoring   	1       	2026-02-22 09:11:26.891234644 +0000 UTC	deployed	kube-prometheus-stack-56.6.0      	v0.71.2    
+localstack   	localstack   	1       	2026-02-22 09:10:26.423595708 +0000 UTC	deployed	localstack-0.6.27                 	latest     
+loki         	monitoring   	1       	2026-02-22 09:11:25.949577345 +0000 UTC	deployed	loki-6.44.0                       	3.5.7      
+pg-exporter  	listmonk     	1       	2026-02-22 09:11:24.300354069 +0000 UTC	deployed	prometheus-postgres-exporter-7.5.0	v0.19.0    
+promtail     	monitoring   	1       	2026-02-22 09:11:26.07765436 +0000 UTC 	deployed	promtail-6.15.0                   	2.8.3      
+
+[0;34mPods:[0m
+NAMESPACE       NAME                                                        READY   STATUS    RESTARTS       AGE
+argo-rollouts   argo-rollouts-7997fbf799-crxn4                              1/1     Running   0              32s
+argocd          argocd-application-controller-0                             1/1     Running   0              5m59s
+argocd          argocd-applicationset-controller-d45c59c4b-ps8h9            1/1     Running   0              6m
+argocd          argocd-dex-server-c65bc8874-wnvgk                           1/1     Running   0              6m
+argocd          argocd-notifications-controller-7dcc8d5948-5hmnn            1/1     Running   0              6m
+argocd          argocd-redis-767f696dd7-vn9q8                               1/1     Running   0              5m59s
+argocd          argocd-repo-server-84f9cf8768-h4jf5                         1/1     Running   0              6m
+argocd          argocd-server-77fccc8b4b-tm22s                              1/1     Running   0              6m
+cert-manager    cert-manager-cainjector-5469cf6649-t68v9                    1/1     Running   44 (27m ago)   97d
+cert-manager    cert-manager-dc97f5746-vmmjn                                1/1     Running   39 (27m ago)   97d
+cert-manager    cert-manager-webhook-54d9668fdc-8ndm8                       1/1     Running   44 (27m ago)   97d
+ingress-nginx   ingress-nginx-controller-7dfff6b6ff-d9sbw                   1/1     Running   43 (27m ago)   97d
+kube-system     coredns-64fd4b4794-w9fg6                                    1/1     Running   43 (27m ago)   97d
+kube-system     local-path-provisioner-774c6665dc-z6668                     1/1     Running   38 (27m ago)   97d
+kube-system     metrics-server-7bfffcd44-46srk                              1/1     Running   42 (27m ago)   97d
+kube-system     sealed-secrets-controller-7c66f775fd-jw22c                  1/1     Running   14 (27m ago)   25d
+kube-system     svclb-ingress-nginx-controller-80f2dc59-cxftk               2/2     Running   76 (27m ago)   97d
+listmonk        pg-exporter-prometheus-postgres-exporter-6b5954bb95-9hsqz   1/1     Running   0              7m22s
+localstack      localstack-79fbcc55b9-59xl7                                 1/1     Running   0              8m19s
+mail            mailpit-5bbc55959-h79xj                                     1/1     Running   0              11s
+monitoring      alertmanager-kps-kube-prometheus-stack-alertmanager-0       2/2     Running   0              6m58s
+monitoring      kps-grafana-54796f6c89-zc2gk                                3/3     Running   0              7m7s
+monitoring      kps-kube-prometheus-stack-operator-f9bfffdf9-2xksn          1/1     Running   0              7m7s
+monitoring      kps-kube-state-metrics-757fb58579-8fz8t                     1/1     Running   0              7m7s
+monitoring      loki-0                                                      2/2     Running   0              7m19s
+monitoring      prometheus-kps-kube-prometheus-stack-prometheus-0           2/2     Running   0              6m57s
+monitoring      promtail-lgvvp                                              1/1     Running   0              7m20s
+monitoring      webhook-receiver-9878877c7-wh69q                            1/1     Running   0              6s
+
+[0;34mBuckets Localstack:[0m
+2026-02-22 09:18:47 listmonk-postgres-backup
+2026-02-22 09:10:49 terraform-state
+
+[0;34mCron Jobs:[0m
+No resources found
+
+[0;32m[OK][0m Bootstrap completado
+[0;32m[OK][0m Log completo: /home/eric/Proyecto/listmonk_Kubernetes/logs/bootstrap_20260222_091021.log

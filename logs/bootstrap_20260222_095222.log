@@ -1,0 +1,3 @@
+========== 0) Estado del Cluster y Componentes  ==========
+[0;34m[APPLYING][0m Verificando DNS local (/etc/hosts)
+[0;33m[WARNING][0m DNS local ya configurado (skip)

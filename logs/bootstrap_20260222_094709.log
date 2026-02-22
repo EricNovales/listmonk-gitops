@@ -1,0 +1,95 @@
+========== 0) Estado del Cluster y Componentes  ==========
+[0;34m[APPLYING][0m Verificando DNS local (/etc/hosts)
+[0;33m[WARNING][0m DNS local ya configurado (skip)
+[0;32m[OK][0m Traefik no detectado
+[0;33m[WARNING][0m ingress-nginx ya está instalado (skip)
+[0;33m[WARNING][0m sealed-secrets ya está instalado (skip)
+[0;32m[OK][0m Cluster listo
+
+========== 1) Localstack ==========
+[0;33m[WARNING][0m Namespace 'localstack' ya existe (skip)
+[0;33m[WARNING][0m Helm release 'localstack' ya existe en ns 'localstack' (skip)
+[0;33m[WARNING][0m Bucket 'terraform-state' ya existe (skip)
+
+========== 2) Terraform ==========
+[0;34m[APPLYING][0m Inicializando Terraform
+Initializing the backend...
+Initializing provider plugins...
+- Reusing previous version of hashicorp/kubernetes from the dependency lock file
+- Reusing previous version of hashicorp/helm from the dependency lock file
+- Using previously-installed hashicorp/kubernetes v3.0.1
+- Using previously-installed hashicorp/helm v3.1.1
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+[0;34m[APPLYING][0m Aplicando infraestructura
+kubernetes_namespace_v1.listmonk: Refreshing state... [id=listmonk]
+kubernetes_namespace_v1.monitoring: Refreshing state... [id=monitoring]
+kubernetes_namespace_v1.argo-rollouts: Refreshing state... [id=argo-rollouts]
+kubernetes_namespace_v1.mail: Refreshing state... [id=mail]
+kubernetes_namespace_v1.argocd: Refreshing state... [id=argocd]
+kubernetes_service_account_v1.mailpit: Refreshing state... [id=mail/mailpit]
+helm_release.promtail: Refreshing state... [id=promtail]
+helm_release.kps: Refreshing state... [id=kps]
+helm_release.loki: Refreshing state... [id=loki]
+kubernetes_network_policy_v1.listmonk_default_deny: Refreshing state... [id=listmonk/default-deny]
+helm_release.pg_exporter: Refreshing state... [id=pg-exporter]
+kubernetes_service_account_v1.listmonk: Refreshing state... [id=listmonk/listmonk]
+kubernetes_service_account_v1.postgres: Refreshing state... [id=listmonk/postgres]
+kubernetes_network_policy_v1.listmonk_allow_egress_analysis_to_listmonk: Refreshing state... [id=listmonk/allow-egress-analysis-to-listmonk-and-dns]
+kubernetes_network_policy_v1.listmonk_allow_egress_from_listmonk: Refreshing state... [id=listmonk/allow-egress-from-listmonk]
+kubernetes_network_policy_v1.allow_backup_egress_postgres_localstack: Refreshing state... [id=listmonk/allow-backup-egress-postgres-dns-localstack]
+kubernetes_network_policy_v1.listmonk_allow_ingress_nginx_to_listmonk: Refreshing state... [id=listmonk/allow-ingress-nginx-to-listmonk]
+kubernetes_network_policy_v1.mail_default_deny: Refreshing state... [id=mail/default-deny]
+kubernetes_network_policy_v1.listmonk_allow_ingress_to_listmonk_from_analysis: Refreshing state... [id=listmonk/allow-ingress-to-listmonk-from-analysis]
+kubernetes_network_policy_v1.listmonk_allow_monitoring_to_pg_exporter: Refreshing state... [id=listmonk/allow-monitoring-to-pg-exporter]
+kubernetes_network_policy_v1.listmonk_allow_listmonk_to_postgres: Refreshing state... [id=listmonk/allow-listmonk-to-postgres]
+kubernetes_network_policy_v1.allow_postgres_ingress_from_backup: Refreshing state... [id=listmonk/allow-postgres-ingress-from-backup]
+kubernetes_network_policy_v1.listmonk_allow_dns_egress: Refreshing state... [id=listmonk/allow-dns-egress]
+kubernetes_network_policy_v1.listmonk_allow_pg_exporter_into_postgres: Refreshing state... [id=listmonk/allow-pg-exporter-into-postgres]
+kubernetes_network_policy_v1.listmonk_allow_pg_exporter_to_postgres: Refreshing state... [id=listmonk/allow-pg-exporter-to-postgres]
+kubernetes_network_policy_v1.mail_allow_ui_from_ingress_nginx: Refreshing state... [id=mail/allow-ui-from-ingress-nginx]
+kubernetes_network_policy_v1.mail_allow_smtp_from_listmonk: Refreshing state... [id=mail/allow-smtp-from-listmonk]
+kubernetes_manifest.aws-user_sealedsecret: Refreshing state...
+kubernetes_manifest.monitoring_sealedsecret: Refreshing state...
+kubernetes_manifest.listmonk_postgres_sealedsecret: Refreshing state...
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration
+and found no differences, so no changes are needed.
+
+Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
+[0;32m[OK][0m Terraform aplicado correctamente
+========== 3) ArgoCD + Rollouts ==========
+[0;33m[WARNING][0m Namespace 'argocd' ya existe (skip)
+[0;33m[WARNING][0m Namespace 'argo-rollouts' ya existe (skip)
+[0;33m[WARNING][0m Helm release 'argocd' ya existe en ns 'argocd' (skip)
+[0;33m[WARNING][0m Helm release 'argo-rollouts' ya existe en ns 'argo-rollouts' (skip)
+[0;33m[WARNING][0m appproject.argoproj.io/listmonk ya existe en ns 'argocd' (skip apply)
+[0;33m[WARNING][0m application.argoproj.io/listmonk ya existe en ns 'argocd' (skip apply)
+[0;34m[APPLYING][0m Esperando a que exista rollout/listmonk en 'listmonk'...
+[0;34m[APPLYING][0m Esperando rollout status de rollout/listmonk en 'listmonk'...
+[0;32m[OK][0m rollout/listmonk listo en 'listmonk'
+
+========== 4) Mail + Webhook ==========
+[0;33m[WARNING][0m Mailpit ya existe (skip apply -k infra/mail)
+[0;33m[WARNING][0m webhook-receiver ya existe (skip apply)
+
+========== 5) Creación S3 Bucket para el Backup ==========
+[0;33m[WARNING][0m Bucket 'listmonk-postgres-backup' ya existe (skip)
+
+============================================================
+[0;32mBOOTSTRAP COMPLETADO[0m
+============================================================
+
+[0;34mNamespaces:[0m
+./k3s_install_config_v3.sh: line 562: run_summary: command not found
+[0;31m[ERROR][0m Bootstrap falló. Revisa el log: /home/eric/Proyecto/listmonk_Kubernetes/logs/bootstrap_20260222_094709.log

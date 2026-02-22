@@ -21,6 +21,8 @@ export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 export AWS_DEFAULT_REGION=us-east-1
 
+
+
 # ----------------------------
 # logging (Colores)
 # ----------------------------
@@ -30,23 +32,58 @@ BLUE='\033[0;34m'
 YELLOW='\033[0;33m'
 NC='\033[0m'
 
-log_ok()      { echo -e "${GREEN}[OK]${NC} $*"; }
-log_install() { echo -e "${BLUE}[INSTALLING]${NC} $*"; }
-log_apply()   { echo -e "${BLUE}[APPLYING]${NC} $*"; }
-log_warn()    { echo -e "${YELLOW}[WARNING]${NC} $*"; }
-log_err()     { echo -e "${RED}[ERROR]${NC} $*" 1>&2; }
-log_info()      { echo -e "${BLUE}[INFO]${NC} $*"; }
+# -------------------------------------------------
+# Trap global de error
+# -------------------------------------------------
+trap 'log_console "${RED}[ERROR]${NC} Bootstrap falló. Revisa el log: $BOOTSTRAP_LOG"; exit 1' ERR
+
+# -------------------------------------------------
+# Log global del bootstrap
+# -------------------------------------------------
+LOG_DIR="$PROJECT_ROOT/logs"
+mkdir -p "$LOG_DIR"
+
+TIMESTAMP="$(date +'%Y%m%d_%H%M%S')"
+BOOTSTRAP_LOG="$LOG_DIR/bootstrap_${TIMESTAMP}.log"
+
+# Guardar stdout/stderr originales (consola real)
+exec 3>&1 4>&2
+
+# Redirigir TODO lo demás al log
+exec >"$BOOTSTRAP_LOG" 2>&1
+
+# Eescribir en consola y también en log
+log_console() {
+  echo -e "$1" >&3   # consola real
+  echo -e "$1"       # log (stdout ya redirigido)
+}
+
+# Tipos de loggin
+
+log_ok()      { log_console "${GREEN}[OK]${NC} $*"; }
+log_install() { log_console "${BLUE}[INSTALLING]${NC} $*"; }
+log_apply()   { log_console "${BLUE}[APPLYING]${NC} $*"; }
+log_warn()    { log_console "${YELLOW}[WARNING]${NC} $*"; }
+log_err()     { log_console "${RED}[ERROR]${NC} $*"; exit 1; }
+log_info()    { log_console "${BLUE}[INFO]${NC} $*"; }
+
+# Ejecucion comandos consola
+run_summary() {
+"$@" 2>&1 | tee >(cat >&3)
+}
+
+
 # ----------------------------
 # Funciones
 # ----------------------------
 
-# Verificación comandos
+########### Verificación comandos ###########
 need() { command -v "$1" >/dev/null || { log_err "Falta '$1'"; exit 1; }; }
 
-# Verificación namespaces
+########### Verificación namespaces ###########
 ns_exists() { kubectl get ns "$1" >/dev/null 2>&1; }
 
-# Creación namespaces antes de Terraform
+########### Creación namespaces antes de Terraform ###########
 ensure_ns() {
   local ns="$1"
   if ns_exists "$ns"; then
@@ -58,7 +95,7 @@ ensure_ns() {
   fi
 }
 
-# Funcion de espera
+########### Funcion de espera pods ###########
 wait_ns_pods_ready() {
   local ns="$1"
 
@@ -89,13 +126,13 @@ wait_ns_pods_ready() {
   log_ok "Pods en '$ns' listos"
 }
 
-# Verificación si existe con Helm
+########### Verificación si existe con Helm ###########
 helm_release_exists() {
   local ns="$1" rel="$2"
   helm -n "$ns" status "$rel" >/dev/null 2>&1
 }
 
-# Instalación con helm
+########### Instalación con helm ###########
 helm_install_and_check() {
   local ns="$1" rel="$2" chart="$3"
   shift 3
@@ -120,7 +157,36 @@ helm_install_and_check() {
   fi
 }
 
-# Función para ejecutar ficheros con Kubectl
+########### Verificacion especial para listmonk ###########
+wait_rollout_ready() {
+  local ns="$1" ro="$2"
+  local timeout="${3:-600s}"
+
+  log_apply "Esperando a que exista rollout/$ro en '$ns'..."
+  local start
+  start="$(date +%s)"
+  local max_wait=600  # segundos para que aparezca
+
+  while ! kubectl -n "$ns" get rollout "$ro" >/dev/null 2>&1; do
+    sleep 3
+    if (( $(date +%s) - start > max_wait )); then
+      log_err "Timeout esperando a que aparezca rollout/$ro en '$ns'"
+      return 1
+    fi
+  done
+
+  log_apply "Esperando rollout status de rollout/$ro en '$ns'..."
+  kubectl -n "$ns" argo rollouts status "$ro" --timeout "$timeout" >/dev/null 2>&1 || true
+
+  # Esperar pods listos (si ya están, no hará nada)
+  wait_ns_pods_ready "$ns"
+
+  log_ok "rollout/$ro listo en '$ns'"
+}
+
+
+
+########### Función para ejecutar ficheros con Kubectl ###########
 apply_if_missing() {
   local kind="$1" name="$2" ns="${3:-}" file="$4"
   if [[ -n "$ns" ]]; then
@@ -140,7 +206,7 @@ apply_if_missing() {
   log_ok "Aplicado: $file"
 }
 
-# Función para ejecutar despligues con kubectl
+########### Función para ejecutar despligues con kubectl ###########
 kubectl_apply_file_checked() {
   local file="$1"
 
@@ -161,7 +227,7 @@ kubectl_apply_file_checked() {
   log_ok "Aplicación verificada: $file"
 }
 
-# Función para ejecutar despligues con kubectl Kustomize
+########### Función para ejecutar despligues con kubectl Kustomize ###########
 kubectl_apply_kustomize_checked() {
   local dir="$1"
 
@@ -183,7 +249,7 @@ kubectl_apply_kustomize_checked() {
   log_ok "Kustomize verificado: $dir"
 }
 
-# Verificación del Dns local
+########### Verificación del Dns local ###########
 ensure_local_dns_hosts() {
   local hosts="listmonk.local mailpit.local preview-listmonk.local grafana.lab.local localstack.local argocd.local"
   local hosts_file="/etc/hosts"
@@ -313,7 +379,7 @@ install_sealed_secrets_if_missing() {
   helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets >/dev/null 2>&1 || true
   helm repo update >/dev/null
 
-  # Instalación en namespace dedicado (recomendado)
+  # Instalación en namespace dedicado
   helm upgrade --install sealed-secrets sealed-secrets/sealed-secrets \
     -n sealed-secrets --create-namespace
 
@@ -345,7 +411,7 @@ need aws
 # ----------------------------
 # 0) Cluster
 # ----------------------------
-echo "========== 0) Estado del Cluster y Componentes  =========="
+log_console "========== 0) Estado del Cluster y Componentes  =========="
 
 # Verificacion DNS-Local
 ensure_local_dns_hosts
@@ -366,7 +432,7 @@ echo
 # ----------------------------
 # 1) Localstack + bucket
 # ----------------------------
-echo "========== 1) Localstack =========="
+log_console "========== 1) Localstack =========="
 helm repo add localstack https://localstack.github.io/helm-charts >/dev/null 2>&1 || true
 helm repo update >/dev/null
 
@@ -400,47 +466,29 @@ fi
 # 2) Terraform
 # ----------------------------
 echo
-echo "========== 2) Terraform =========="
+log_console "========== 2) Terraform =========="
 
 if [[ -d "$PROJECT_ROOT/infra/Terraform" ]]; then
   pushd "$PROJECT_ROOT/infra/Terraform" >/dev/null
 
-  # Crear directorio logs si no existe
-  LOG_DIR="$PROJECT_ROOT/logs"
-  mkdir -p "$LOG_DIR"
-
-  # Timestamp
-  TIMESTAMP="$(date +'%Y%m%d_%H%M%S')"
-  TF_LOG_FILE="$LOG_DIR/terraform_${TIMESTAMP}.log"
-
   log_apply "Inicializando Terraform"
-  if ! terraform init -input=false -no-color >"$TF_LOG_FILE" 2>&1; then
-    log_err "Terraform init falló. Revisa $TF_LOG_FILE"
-    popd >/dev/null
-    exit 1
-  fi
+  terraform init -input=false -no-color
 
   log_apply "Aplicando infraestructura"
-  if terraform apply -auto-approve -input=false -no-color >>"$TF_LOG_FILE" 2>&1; then
-    log_ok "Terraform aplicado correctamente"
-    log_ok "Log guardado en: $TF_LOG_FILE"
-  else
-    log_err "Terraform apply falló. Revisa $TF_LOG_FILE"
-    popd >/dev/null
-    exit 1
-  fi
+  terraform apply -auto-approve -input=false -no-color
+
+  log_ok "Terraform aplicado correctamente"
 
   popd >/dev/null
 else
-  log_err "No existe infra/Terraform"
-  exit 1
+  log_err "No existe infra/Terraform (ajusta la ruta en el script)"
 fi
 wait_ns_pods_ready monitoring
 
 # ----------------------------
 #3) ArgoCD + Rollouts
 # ----------------------------
-echo "========== 3) ArgoCD + Rollouts =========="
+log_console "========== 3) ArgoCD + Rollouts =========="
 helm repo add argo https://argoproj.github.io/argo-helm >/dev/null 2>&1 || true
 helm repo update >/dev/null
 
@@ -460,13 +508,13 @@ wait_ns_pods_ready argo-rollouts
 apply_if_missing "appproject.argoproj.io" "listmonk" "argocd" "$PROJECT_ROOT/infra/argocd/argocd-project-listmonk.yaml"
 apply_if_missing "application.argoproj.io" "listmonk" "argocd" "$PROJECT_ROOT/infra/argocd/argocd-app-listmonk.yaml"
 
-wait_ns_pods_ready listmonk
+wait_rollout_ready listmonk listmonk 600s
 echo
 
 # ----------------------------
 # 4) Mail + webhook receiver
 # ----------------------------
-echo "========== 4) Mail + Webhook =========="
+log_console "========== 4) Mail + Webhook =========="
 
 # Mail (kustomize)
 if ns_exists mail && kubectl -n mail get deploy/mailpit >/dev/null 2>&1; then
@@ -488,7 +536,7 @@ wait_ns_pods_ready monitoring
 # Backup S3 Bucket
 # ----------------------------
 echo
-echo "========== 5) Creación S3 Bucket para el Backup =========="
+log_console "========== 5) Creación S3 Bucket para el Backup =========="
 if aws --endpoint-url="$S3_ENDPOINT" s3 ls "s3://listmonk-postgres-backup" >/dev/null 2>&1; then
   log_warn "Bucket 'listmonk-postgres-backup' ya existe (skip)"
 else
@@ -503,22 +551,27 @@ fi
 
 
 echo
-echo "============================================================"
-echo -e "${GREEN}BOOTSTRAP COMPLETADO${NC}"
-echo "============================================================"
+log_console "============================================================"
+log_console "${GREEN}BOOTSTRAP COMPLETADO${NC}"
+log_console "============================================================"
 echo
-echo -e "${BLUE}Namespaces:${NC}"
-kubectl get ns
+log_console "${BLUE}Namespaces:${NC}"
+run_summary kubectl get ns
 echo
-echo -e "${BLUE}Helm releases:${NC}"
-helm list -A
+log_console "${BLUE}Helm releases:${NC}"
+run_summary helm list -A
 echo
-echo -e "${BLUE}Pods:${NC}"
-kubectl get pods -A
+log_console "${BLUE}Pods:${NC}"
+run_summary kubectl get pods -A
 echo
-echo -e "${BLUE}Buckets Localstack:${NC}"
-aws --endpoint-url=$S3_ENDPOINT s3 ls || true
+log_console "${BLUE}Buckets Localstack:${NC}"
+run_summary aws --endpoint-url=$S3_ENDPOINT s3 ls || true
 echo
-echo -e "${BLUE}Cron Jobs:${NC}"
-kubectl get cronjobs -A
+log_console "${BLUE}Cron Jobs:${NC}"
+run_summary kubectl get cronjobs -A
 echo
+log_console "${BLUE}Rollouts listmonk:${NC}" 
+run_summary kubectl -n listmonk get rollout || true
+log_ok "Bootstrap completado"
+log_ok "Log completo: $BOOTSTRAP_LOG"
+
