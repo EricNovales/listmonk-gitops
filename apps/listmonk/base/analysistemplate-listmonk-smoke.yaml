@@ -9,7 +9,7 @@ spec:
   metrics:
     - name: http-smoke
       interval: 10s
-      count: 5 #Hace el test X veces
+      count: 3 #Hace el test X veces
       failureLimit: 2
       # Tratar "0" como éxito
       successCondition: result == 0

@@ -2,7 +2,7 @@
 
 set -e
 
-echo "?? Instalación de K3s para MF8"
+echo "?? Instalaciï¿½n de K3s cluster"
 echo ""
 
 # Colores
@@ -11,15 +11,15 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# Verificar si ya está instalado
+# Verificar si ya estï¿½ instalado
 if command -v k3s &> /dev/null; then
-    echo -e "??  K3s ya está instalado"
+    echo -e "??  K3s ya estï¿½ instalado"
     k3s --version
     echo ""
-    read -p "¿Deseas reinstalarlo? (s/n): " -n 1 -r
+    read -p "ï¿½Deseas reinstalarlo? (s/n): " -n 1 -r
     echo ""
     if [[ !  =~ ^[Ss]$ ]]; then
-        echo "Instalación cancelada"
+        echo "Instalaciï¿½n cancelada"
         exit 0
     fi
     echo ""
@@ -32,7 +32,7 @@ fi
 echo "?? Verificando requisitos..."
 
 if ! command -v curl &> /dev/null; then
-    echo -e "? curl no está instalado"
+    echo -e "? curl no estï¿½ instalado"
     exit 1
 fi
 
@@ -40,7 +40,7 @@ fi
 OS=Linux
 if [[ "" != "Linux" && "" != "Darwin" ]]; then
     echo -e "? Sistema operativo no soportado: "
-    echo "K3s solo funciona en Linux y macOS"
+    echo "K3s solo funciona en Linux"
     exit 1
 fi
 
@@ -51,40 +51,27 @@ echo ""
 echo "?? Descargando e instalando K3s..."
 echo ""
 
-if [[ "" == "Darwin" ]]; then
-    echo -e "??  En macOS, K3s requiere Docker Desktop o Rancher Desktop"
-    echo "Alternativas recomendadas para macOS:"
-    echo "  - Minikube: brew install minikube && minikube start"
-    echo "  - OrbStack: https://orbstack.dev/"
-    echo "  - Docker Desktop: Activar Kubernetes en preferencias"
-    echo ""
-    read -p "¿Continuar con K3s de todos modos? (s/n): " -n 1 -r
-    echo ""
-    if [[ !  =~ ^[Ss]$ ]]; then
-        exit 0
-    fi
-fi
-
 # Instalar K3s
-curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
+
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik" sh - -s - --write-kubeconfig-mode 644
 
 echo ""
-echo "? Esperando a que K3s esté listo..."
+echo "? Esperando a que K3s estï¿½ listo..."
 sleep 10
 
 # Configurar kubeconfig
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
-# Verificar instalación
+# Verificar instalaciï¿½n
 if kubectl get nodes &> /dev/null; then
     echo -e "? K3s instalado correctamente"
     echo ""
     kubectl get nodes
     echo ""
-    echo "?? Configuración de kubectl:"
+    echo "?? Configuraciï¿½n de kubectl:"
     echo "  export KUBECONFIG=/etc/rancher/k3s/k3s.yaml"
     echo ""
-    echo "O copia el kubeconfig a tu ubicación por defecto:"
+    echo "O copia el kubeconfig a tu ubicaciï¿½n por defecto:"
     echo "  mkdir -p ~/.kube"
     echo "  sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config"
     echo "  sudo chown $USER ~/.kube/config"
@@ -95,7 +82,7 @@ else
     exit 1
 fi
 
-echo "? Instalación completada"
+echo "? Instalaciï¿½n completada"
 echo ""
-echo "Ahora puedes ejecutar: ./scripts/setup-cluster.sh"
+echo "Ahora puedes ejecutar: ./scripts/k3s_install_config.sh"
 echo ""

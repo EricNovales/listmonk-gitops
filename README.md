@@ -5,6 +5,7 @@ Este Repositori contiene el despliegue del entorno para Listmonk. Tiene los sigu
 ## Components
 - Listmonk application
 - PostgreSQL
+- Cronjob+Pg_backup
 - Mailpit (SMTP testing)
 - Ingress-NGINX
 - NetworkPolicies (zero-trust)
@@ -53,13 +54,13 @@ kubeseal --controller-namespace kube-system --format yaml < XXXX-secret-plain.ya
 ### 1. Instalar K3s (opcional)
 
 ```bash
-./scripts/install-k3s.sh
+./scripts/k3s_installation.sh
 ```
 
 ### 2. Configurar el cluster completo
 
 ```bash
-./scripts/setup-cluster.sh
+./scripts/k3s_infra_deploy.sh
 ```
 
 Este script automáticamente:
@@ -84,7 +85,7 @@ Este script automáticamente:
 ### 3. Verificar estado del cluster
 
 ```bash
-./scripts/cluster-status.sh
+./scripts/k3s-status.sh
 ```
 
 ## Accesos y Servicios
@@ -240,4 +241,16 @@ listmonk_Kubernetes/
     ├── k3s-status.sh
     └── k3s_install_config_v3.sh
 
+```
+
+### Limpieza
+Script para eliminar todo lo instalado. Cluster limpio.
+Importante: Solo elimina si le pasas la variable ALLOW_DESTROY=1
+```bash
+ALLOW_DESTROY=1  ./scripts/clean_all_infra.sh
+```
+
+### Script con comandos utiles para a gestion
+```bash
+./scripts/help-commands.sh
 ```
