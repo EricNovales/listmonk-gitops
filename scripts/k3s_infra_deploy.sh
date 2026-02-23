@@ -276,7 +276,7 @@ kubectl_apply_kustomize_checked() {
 
 ########### Verificación del Dns local ###########
 ensure_local_dns_hosts() {
-  local hosts="listmonk.local mailpit.local preview-listmonk.local grafana.lab.local localstack.local argocd.local"
+  local hosts="listmonk.local mailpit.local preview-listmonk.local grafana.local localstack.local argocd.local"
   local hosts_file="/etc/hosts"
 
   log_apply "Verificando DNS local ($hosts_file)"
@@ -431,6 +431,7 @@ need kubectl
 need helm
 need terraform
 need aws
+need kubectl-argo-rolloutso
 
 log_console ""
 # ----------------------------

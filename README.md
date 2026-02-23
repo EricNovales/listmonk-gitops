@@ -1,6 +1,10 @@
 # Listmonk GitOps Deployment
 
-Este Repositori contiene el despliegue del entorno para Listmonk. Tiene los siguientes componentes:
+Este Repositori contiene el despliegue de una infraestructura DevOps en Kubernetes(K3s), para la aplicación listmonk, la cual tendrá un stack de monitorización y argocd para el control de versiones. 
+Usaremos este repositorio GitHub como fuente absoluta de la verdad. 
+Además, implementaremos Blue-Green para los nuevos despliegues con argo-rollouts e implementaremos Terraform para el despliegue de parte de la infraestructura.
+
+Tiene los siguientes componentes:
 
 ## Components
 - Listmonk application
@@ -18,13 +22,13 @@ Este Repositori contiene el despliegue del entorno para Listmonk. Tiene los sigu
 
 ## Requisitos Previos
 
-### Herramientas Necesarias
+### Herramientas Necesarias instladas en tu maquina
 
 - **kubectl** - Cliente de Kubernetes ([instalación](https://kubernetes.io/docs/tasks/tools/))
 - **Helm** - Gestor de paquetes de Kubernetes ([instalación](https://helm.sh/docs/intro/install/))
-- **Terraform** - 
-- **AWScli** - 
-- **Argo-rollouts** -
+- **Terraform** - Paquete de Terraform ([instalación](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli/))
+- **AWScli** - Cliente para AWS ([instalación](https://docs.aws.amazon.com/es_es/cli/v1/userguide/install-linux.html)) 
+- **Argo-rollouts kubectl Plugin** - Cliente para gestion de rollouts ([instalación](https://argo-rollouts.readthedocs.io/en/stable/installation/))
 
 ### Cluster Kubernetes
 
@@ -47,7 +51,9 @@ kubeseal --controller-namespace kube-system --format yaml < XXXX-secret-plain.ya
 ### Otros
 
 - Es necesario añadir Renovate a tu repositorio
-
+- Por defecto el despliegue usa mi preopio repositorio de listmonk(publico), pero si quieres usar uno propio, deberas cambiarlo en los siguientes ficheros:
+    - renovate.json
+    - app/listmonkt/base/kustomize.yaml
 
 ## Instalación Script
 
