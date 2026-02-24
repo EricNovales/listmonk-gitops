@@ -431,7 +431,7 @@ need kubectl
 need helm
 need terraform
 need aws
-need kubectl-argo-rolloutso
+need kubectl-argo-rollouts
 
 log_console ""
 # ----------------------------
@@ -494,12 +494,11 @@ if [[ -d "$PROJECT_ROOT/infra/Terraform" ]]; then
 
   log_apply "Inicializando Terraform"
   terraform init -input=false -no-color >/dev/null
-
+  
   log_apply "Comprobando cambios en infraestructura"
-  set +e
-  terraform plan -detailed-exitcode -input=false -no-color >/dev/null
-  TF_PLAN_EXIT=$?
-  set -e
+  TF_PLAN_EXIT=0
+  terraform plan -detailed-exitcode -input=false -no-color >/dev/null || TF_PLAN_EXIT=$?
+
 
   if [[ $TF_PLAN_EXIT -eq 0 ]]; then
     log_ok "No hay cambios en la infraestructura"
@@ -527,20 +526,21 @@ helm repo update >/dev/null
 ensure_ns argocd
 ensure_ns argo-rollouts
 
+log_info "${BLUE}Puede tardar varios minutos${NC}"
+
 helm_install_and_check argocd argocd argo/argo-cd \
   -f "$PROJECT_ROOT/infra/argocd/values-argocd.yaml" --version 9.4.2
 
 helm_install_and_check argo-rollouts argo-rollouts argo/argo-rollouts \
   -f "$PROJECT_ROOT/infra/argocd/values-rollouts.yaml" --version 2.40.5
 
-#kubectl -n argocd rollout status deploy/argocd-server --timeout=300s >/dev/null 2>&1 || true
 wait_ns_pods_ready argocd
 wait_ns_pods_ready argo-rollouts
 
 apply_if_missing "appproject.argoproj.io" "listmonk" "argocd" "$PROJECT_ROOT/infra/argocd/argocd-project-listmonk.yaml"
 apply_if_missing "application.argoproj.io" "listmonk" "argocd" "$PROJECT_ROOT/infra/argocd/argocd-app-listmonk.yaml"
 
-wait_rollout_ready listmonk listmonk 600s
+wait_rollout_ready listmonk listmonk 600
 
 log_console ""
 # ----------------------------
@@ -601,13 +601,20 @@ run_summary kubectl get cronjobs -A
 log_console ""
 log_console "${BLUE}Rollouts listmonk:${NC}" 
 run_summary kubectl -n listmonk get rollout || true
-log_ok "Bootstrap completado"
-log_ok "Log completo: $BOOTSTRAP_LOG"
 
 log_console ""
 log_console "${BLUE}============================================================${NC}"
 log_console "${BLUE}${BOLD}ACCESOS A SERVICIOS${NC}"
 log_console "${BLUE}============================================================${NC}"
+log_console ""
+
+#Credenciales para Argocd
+log_console "${BLUE}Credenciales Temporales Argocd${NC}"
+log_console "User: admin"
+log_console "Password: $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d)"
+#log_console "Password: " run_summary kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d && echo
+log_warn "Cambialo en el primer login"
+
 log_console ""
 log_console "${CYAN}${BOLD}Aplicaciones:${NC}"
 log_console "  ${GREEN}listmonk:${NC}      http://listmonk.local"
@@ -621,3 +628,7 @@ log_console "  ${GREEN}Localstack:${NC}    http://localstack.local"
 log_console "  ${GREEN}ArgoCD:${NC}        http://argocd.local"
 log_console ""
 log_console "${BLUE}============================================================${NC}"
+log_console ""
+log_ok "Bootstrap completado"
+log_ok "Log completo: $BOOTSTRAP_LOG"
+
